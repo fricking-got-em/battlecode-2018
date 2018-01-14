@@ -1,4 +1,5 @@
 #First bot testing MINE
+#NEWWWW
 import battlecode as bc
 import random
 import sys
