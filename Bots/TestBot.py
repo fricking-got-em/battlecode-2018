@@ -27,6 +27,7 @@ rockets = np.array([])
 
 totalUnits = 0
 previousUnits = 0
+maxFactory = 6
 
 class Unit:
 	
@@ -55,30 +56,35 @@ class Worker(Unit):
 	def blueprintFactory(self, *direction):
 		global factories
 		
-		if direction != ():
-			directions = direction
+		if self.unit.location.is_on_map():
+			if direction != ():
+				directions = direction
+			else:
+				directions = list(bc.Direction)
+			
+			for d in directions:
+				if gc.can_blueprint(self.unit.id, bc.UnitType.Factory, d):
+					gc.blueprint(self.unit.id, bc.UnitType.Factory, d)
+					print("Blueprinted")
+					return True
+					break
+			
+			print("Failed to blueprint")
+			return False
 		else:
-			directions = list(bc.Direction)
-		
-		for d in directions:
-			if gc.can_blueprint(self.unit.id, bc.UnitType.Factory, d):
-				gc.blueprint(self.unit.id, bc.UnitType.Factory, d)
-				print("Blueprinted")
-				return True
-				break
-		
-		print("Failed to blueprint")
-		return False
+			return False
 	
 	#Builds whatever factory is nearby	
 	def buildFactory(self):
-		near = gc.sense_nearby_units(unit.location.map_location(), 1)
-		for i in near:
-			if gc.can_build(unit.id, i.id):
-				gc.build(unit.id, i.id)
-				print("Building")
-		
-		
+		if self.unit.location.is_on_map():
+			near = gc.sense_nearby_units(self.unit.location.map_location(), 1)
+			for i in near:
+				if gc.can_build(self.unit.id, i.id):
+					gc.build(self.unit.id, i.id)
+					print("Building")
+		else:
+			return False
+	
 class Knight(Unit):
 
 	count = 0
@@ -134,6 +140,21 @@ class Factory(Unit):
 	def actionType(self, type):
 		super().actionType(type)
 		
+	def unloadUnit(self, *direction):
+		if direction != ():
+			directions = direction
+		else:
+			directions = list(bc.Direction)
+		
+		for d in directions:
+			if gc.can_unload(self.unit.id, d):
+				gc.unload(self.unit.id, d)
+	
+	def buildUnit(self, type):
+		if gc.can_produce_robot(self.unit.id, type):
+			gc.produce_robot(self.unit.id, type)
+			
+	
 class Rocket(Unit):
 	
 	count = 0
@@ -200,15 +221,23 @@ while True:
 			totalUnits = len(gc.my_units())
 			previousUnits = len(gc.my_units())
 		elif gc.planet() == bc.Planet.Earth:
-			print("Workers: " + str(np.size(workers)))
-			print(gc.karbonite())
-			workers[0].blueprintFactory(dir[0])
+			
+			for w in workers:
+				if factories.size < maxFactory:
+					w.blueprintFactory()
+				
+				w.buildFactory()
+				
+			for f in factories:
+				#To select what unit to build do bc.UnitType."Whatever"
+				f.buildUnit(bc.UnitType.Worker)
+				#If you don't put any direction it'll just unload in an empty square
+				f.unloadUnit()
 		
 		if totalUnits != previousUnits:
 			refreshUnits()
 			previousUnits = len(gc.my_units())
 			print("Units Refreshed: " + str(totalUnits))
-		
 		
 	except Exception as e:
 		if error == False:
