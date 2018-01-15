@@ -25,6 +25,16 @@ healers = np.array([])
 factories = np.array([])
 rockets = np.array([])
 
+EarthMap = gc.starting_map(bc.Planet.Earth)
+karnoniteLocations = np.array([])
+
+#Scan for karbonite
+for x in range(EarthMap.width - 1):
+	for y in range(EarthMap.height - 1):
+		if EarthMap.initial_karbonite_at(bc.MapLocation(bc.Planet.Earth, x, y)) > 0:
+			karnoniteLocations = np.append(karnoniteLocations, bc.MapLocation(bc.Planet.Earth, x, y))
+			
+
 totalUnits = 0
 previousUnits = 0
 maxFactory = 6
@@ -47,6 +57,8 @@ class Worker(Unit):
 	
 	def __init__(self, id, unit):
 		super().__init__(id, unit)
+		self.path = np.array([])\
+		self.first = true
 		#count = count + 1
 		
 	def actionType(self, type):
@@ -84,7 +96,50 @@ class Worker(Unit):
 					print("Building")
 		else:
 			return False
-	
+			
+	def mineKarbonite(self):
+		global EarthMap
+		
+		if self.unit.location.is_on_map():
+			return True
+		else:
+			return False
+			
+	def navigateToPoint(self, pLoc, dLoc):
+		if self.unit.location.is_on_map():
+		
+			dir = convertDirection(pLoc.direction_to(dLoc))
+			tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
+				
+			#Checks if the terrain is passable in the closest direction
+			if EarthMap.is_passable_terrain_at(tLoc):
+				path = np.append(path, pLoc.direction_to(dLoc))
+				navigateToPoint(tLoc, dLoc)
+			else:
+				
+		else:
+			return False
+			
+	def convertDirection(dir):
+		if dir == 0:
+			return [0,1]
+		elif dir == 1:
+			return [1,1]
+		elif dir == 2:
+			return [1,0]
+		elif dir == 3:
+			return [1,-1]
+		elif dir == 4:
+			return [0,-1]
+		elif dir == 5:
+			return [-1,-1]
+		elif dir == 6:
+			return [-1,0]
+		elif dir == 7:
+			return [-1,1]
+		else:
+			return [0,0]
+		
 class Knight(Unit):
 
 	count = 0
