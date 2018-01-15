@@ -37,7 +37,7 @@ for x in range(EarthMap.width - 1):
 
 totalUnits = 0
 previousUnits = 0
-maxFactory = 6
+maxFactory = 1
 
 class Unit:
 	
@@ -57,8 +57,9 @@ class Worker(Unit):
 	
 	def __init__(self, id, unit):
 		super().__init__(id, unit)
-		self.path = np.array([])\
-		self.first = true
+		self.path = np.array([])
+		self.first = True
+		self.pathCount = 0
 		#count = count + 1
 		
 	def actionType(self, type):
@@ -99,43 +100,94 @@ class Worker(Unit):
 			
 	def mineKarbonite(self):
 		global EarthMap
+		global karnoniteLocations
+		global gc
 		
 		if self.unit.location.is_on_map():
-			return True
-		else:
-			return False
-			
-	def navigateToPoint(self, pLoc, dLoc):
-		if self.unit.location.is_on_map():
-		
-			dir = convertDirection(pLoc.direction_to(dLoc))
-			tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
-				
-			#Checks if the terrain is passable in the closest direction
-			if EarthMap.is_passable_terrain_at(tLoc):
-				path = np.append(path, pLoc.direction_to(dLoc))
-				navigateToPoint(tLoc, dLoc)
+			if self.path != np.array([]):
+				gc.move(self.id, path[self.pathCount])
+				pathCount = pathCount + 1
 			else:
+				self.navigateToPoint(karnoniteLocations[0])
+		else:
+			return False
+		
+	def navigateToPoint(self, dLoc):
+		global EarthMap
+		if self.unit.location.is_on_map():
+			pLoc = self.unit.location.map_location()
+			
+			while True:
+				dir = self.convertDirection(pLoc.direction_to(dLoc))
+				tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 				
+				if EarthMap.is_passable_terrain_at(tLoc):
+					self.path = np.append(self.path, pLoc.direction_to(dLoc))
+					pLoc = tLoc
+				else:
+					nDir = pLoc.direction_to - 2
+					
+					#Finds the direction you can go along the obstacle
+					while True:
+					
+						#This flips the compass around because each direction is 0 through 7
+						if nDir < 0:
+							nDir = nDir + 8
+						dir = self.convertDirection(nDir)
+						tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
+						
+						if EarthMap.is_passable_terrain_at(tLoc):
+							self.path = np.append(self.path, nDir)
+							pLoc = tLoc
+							break
+						else:
+							nDir = nDir - 1
+					
+					wallDir = nDir
+					#Move in that direction along the obstacle until it can head in the right direction again
+					while True:
+						dir = self.convertDirection(nDir)
+						wallDir = self.convertDirection(wallDir)
+						
+						tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
+						wallLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + wallDir[0], pLoc.y + wallDir[1])
+						if EarthMap.is_passable_terrain_at(tLoc) and EarthMap.is_passable_terrain_at(wallLoc) == False:
+							self.path = np.append(self.path, nDir)
+							pLoc = tLoc
+						elif EarthMap.is_passable_terrain_at(wallLoc) == True:
+							#Continue heading along the same wall
+							path = np.append(self.path, wallDir)
+							pLoc = wallLoc
+							nDir = wallDir
+							
+							dir = self.convertDirection(pLoc.direction_to(dLoc))
+							tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
+							
+							#But if you can now continue toward the goal then do so
+							if EarthMap.is_passable_terrain_at(tLoc):
+								self.path = np.append(self.path, pLoc.direction_to(dLoc))
+								pLoc = tLoc
+								break
+						
 		else:
 			return False
 			
-	def convertDirection(dir):
-		if dir == 0:
+	def convertDirection(self, dir):
+		if dir == bc.Direction.North:
 			return [0,1]
-		elif dir == 1:
+		elif dir == bc.Direction.Northeast:
 			return [1,1]
-		elif dir == 2:
+		elif dir == bc.Direction.East:
 			return [1,0]
-		elif dir == 3:
+		elif dir == bc.Direction.Southeast:
 			return [1,-1]
-		elif dir == 4:
+		elif dir == bc.Direction.South:
 			return [0,-1]
-		elif dir == 5:
+		elif dir == bc.Direction.Southwest:
 			return [-1,-1]
-		elif dir == 6:
+		elif dir == bc.Direction.West:
 			return [-1,0]
-		elif dir == 7:
+		elif dir == bc.Direction.Northwest:
 			return [-1,1]
 		else:
 			return [0,0]
@@ -280,8 +332,9 @@ while True:
 			for w in workers:
 				if factories.size < maxFactory:
 					w.blueprintFactory()
-				
-				w.buildFactory()
+				else:
+					w.mineKarbonite()
+				#w.buildFactory()
 				
 			for f in factories:
 				#To select what unit to build do bc.UnitType."Whatever"
