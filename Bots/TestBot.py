@@ -57,7 +57,7 @@ class Worker(Unit):
 	
 	def __init__(self, id, unit):
 		super().__init__(id, unit)
-		self.path = np.array([])
+		self.path = []
 		self.first = True
 		self.pathCount = 0
 		#count = count + 1
@@ -104,9 +104,13 @@ class Worker(Unit):
 		global gc
 		
 		if self.unit.location.is_on_map():
-			if self.path != np.array([]):
-				gc.move(self.id, path[self.pathCount])
-				pathCount = pathCount + 1
+			if self.path != []:
+				if self.pathCount < len(self.path) - 1:
+					if gc.can_move(self.id, self.path[self.pathCount]) and gc.is_move_ready(self.id):	
+						gc.move_robot(self.id, self.path[self.pathCount])
+						self.pathCount = self.pathCount + 1
+						#print("KarboniteAt: " + str(karnoniteLocations[0]))
+						#print("WorkerAt: " + str(self.unit.location.map_location()))
 			else:
 				self.navigateToPoint(karnoniteLocations[0])
 		else:
@@ -118,18 +122,36 @@ class Worker(Unit):
 			pLoc = self.unit.location.map_location()
 			
 			while True:
+				if pLoc.distance_squared_to(dLoc) == 0:
+					n = 0
+					for i in self.path:
+						if type(i) == type(1):
+							self.path[n] = self.convertToDirection(i)
+						print(str(i) + " : " + str(self.id))
+						n = n + 1
+					return True
+				#print(str(pLoc) + " <> " + str(dLoc) + " : " + str(self.id))		
 				dir = self.convertDirection(pLoc.direction_to(dLoc))
 				tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 				
 				if EarthMap.is_passable_terrain_at(tLoc):
-					self.path = np.append(self.path, pLoc.direction_to(dLoc))
+					self.path.append(pLoc.direction_to(dLoc))
 					pLoc = tLoc
 				else:
-					nDir = pLoc.direction_to - 2
+					nDir = pLoc.direction_to(dLoc) - 1
+					wallDir = pLoc.direction_to(dLoc)
 					
 					#Finds the direction you can go along the obstacle
 					while True:
-					
+						if pLoc.distance_squared_to(dLoc) == 0:
+							n = 0
+							for i in self.path:
+								if type(i) == type(1):
+									self.path[n] = self.convertToDirection(i)
+								print(str(i) + " : " + str(self.id))
+								n = n + 1
+							return True
+						#print(str(pLoc) + " <> " + str(dLoc) + " : " + str(self.id) + " Finding new direction")			
 						#This flips the compass around because each direction is 0 through 7
 						if nDir < 0:
 							nDir = nDir + 8
@@ -137,26 +159,34 @@ class Worker(Unit):
 						tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 						
 						if EarthMap.is_passable_terrain_at(tLoc):
-							self.path = np.append(self.path, nDir)
+							self.path.append(nDir)
 							pLoc = tLoc
 							break
 						else:
 							nDir = nDir - 1
 					
-					wallDir = nDir
 					#Move in that direction along the obstacle until it can head in the right direction again
 					while True:
+						if pLoc.distance_squared_to(dLoc) == 0:
+							n = 0
+							for i in self.path:
+								if type(i) == type(1):
+									self.path[n] = self.convertToDirection(i)
+								print(str(i) + " : " + str(self.id))
+								n = n + 1
+							return True
+						#print(str(pLoc) + " <> " + str(dLoc) + " : " + str(self.id) + " Along Wall " + str(nDir) + " ; " + str(wallDir))		
 						dir = self.convertDirection(nDir)
-						wallDir = self.convertDirection(wallDir)
+						wallD = self.convertDirection(wallDir)
 						
 						tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
-						wallLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + wallDir[0], pLoc.y + wallDir[1])
+						wallLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + wallD[0], pLoc.y + wallD[1])
 						if EarthMap.is_passable_terrain_at(tLoc) and EarthMap.is_passable_terrain_at(wallLoc) == False:
-							self.path = np.append(self.path, nDir)
+							self.path.append(nDir)
 							pLoc = tLoc
 						elif EarthMap.is_passable_terrain_at(wallLoc) == True:
 							#Continue heading along the same wall
-							path = np.append(self.path, wallDir)
+							self.path.append(wallDir)
 							pLoc = wallLoc
 							nDir = wallDir
 							
@@ -165,10 +195,10 @@ class Worker(Unit):
 							
 							#But if you can now continue toward the goal then do so
 							if EarthMap.is_passable_terrain_at(tLoc):
-								self.path = np.append(self.path, pLoc.direction_to(dLoc))
+								self.path.append(pLoc.direction_to(dLoc))
 								pLoc = tLoc
 								break
-						
+								
 		else:
 			return False
 			
@@ -191,6 +221,26 @@ class Worker(Unit):
 			return [-1,1]
 		else:
 			return [0,0]
+			
+	def convertToDirection(self, n):
+		if n == 0:
+			return bc.Direction.North
+		elif n == 1:
+			return bc.Direction.Northeast
+		elif n == 2:
+			return bc.Direction.East
+		elif n == 3:
+			return bc.Direction.Southeast
+		elif n == 4:
+			return bc.Direction.South
+		elif n == 5:
+			return bc.Direction.Southwest
+		elif n == 6:
+			return bc.Direction.West
+		elif n == 7:
+			return bc.Direction.Northwest
+		elif n == 8:
+			return bc.Direction.Center
 		
 class Knight(Unit):
 
@@ -318,7 +368,7 @@ def refreshUnits():
 
 while True:
 	round = gc.round()
-	print("Round: " + str(round))
+	#print("Round: " + str(round))
 
 	try:
 		totalUnits = len(gc.my_units())
