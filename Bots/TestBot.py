@@ -111,7 +111,7 @@ class Worker(Unit):
 						gc.move_robot(self.id, self.path[self.pathCount])
 						self.pathCount = self.pathCount + 1
 					else:
-						print("Can't Move : " + str(self.id) + " Heat: " + str(self.unit.movement_heat()))
+						print("Can't Move : " + str(self.id) + " Direction: " + str(self.path[self.pathCount]))
 						
 				else:
 					if gc.can_harvest(self.id, self.path[len(self.path) - 1]):
@@ -153,15 +153,26 @@ class Worker(Unit):
 					return True
 				#print(str(pLoc) + " <> " + str(dLoc) + " : " + str(self.id))		
 				dir = self.convertDirection(pLoc.direction_to(dLoc))
-				tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
+				print(dir)
+				tLoc1 = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y)
+				tLoc2 = bc.MapLocation(bc.Planet.Earth, pLoc.x, pLoc.y + dir[1])
+				tLoc3 = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 				
-				if EarthMap.is_passable_terrain_at(tLoc):
+				if EarthMap.is_passable_terrain_at(tLoc1) and EarthMap.is_passable_terrain_at(tLoc2) and EarthMap.is_passable_terrain_at(tLoc3):
 					self.path.append(pLoc.direction_to(dLoc))
-					pLoc = tLoc
+					pLoc = tLoc3
 				else:
-					nDir = pLoc.direction_to(dLoc) - 1
-					wallDir = pLoc.direction_to(dLoc)
+					if not EarthMap.is_passable_terrain_at(tLoc1):
+						nDir = pLoc.direction_to(tLoc1) - 1
+						wallDir = pLoc.direction_to(tLoc1)
+					elif not EarthMap.is_passable_terrain_at(tLoc2):
+						nDir = pLoc.direction_to(tLoc2) - 1
+						wallDir = pLoc.direction_to(tLoc2)
+					else:
+						nDir = pLoc.direction_to(tLoc3) - 1
+						wallDir = pLoc.direction_to(tLoc3)
 					
+					print("Walllllll: " + str(wallDir))
 					#Finds the direction you can go along the obstacle
 					while True:
 						if pLoc.distance_squared_to(dLoc) == 0:
