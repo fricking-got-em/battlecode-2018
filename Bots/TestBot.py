@@ -60,6 +60,7 @@ class Worker(Unit):
 		self.path = []
 		self.first = True
 		self.pathCount = 0
+		self.closestLoc = 0
 		#count = count + 1
 		
 	def actionType(self, type):
@@ -105,14 +106,34 @@ class Worker(Unit):
 		
 		if self.unit.location.is_on_map():
 			if self.path != []:
-				if self.pathCount < len(self.path) - 1:
+				if self.pathCount < len(self.path):
 					if gc.can_move(self.id, self.path[self.pathCount]) and gc.is_move_ready(self.id):	
 						gc.move_robot(self.id, self.path[self.pathCount])
 						self.pathCount = self.pathCount + 1
-						#print("KarboniteAt: " + str(karnoniteLocations[0]))
-						#print("WorkerAt: " + str(self.unit.location.map_location()))
+					else:
+						print("Can't Move : " + str(self.id) + " Heat: " + str(self.unit.movement_heat()))
+						
+				else:
+					if gc.can_harvest(self.id, self.path[len(self.path) - 1]):
+						gc.harvest(self.id, self.path[len(self.path) - 1])
+						print("Harvesting..." + str(self.id))
+					else:
+						self.path = []
+						self.pathCount = 0
+						print("Can't harvest more..." + str(self.id))
 			else:
-				self.navigateToPoint(karnoniteLocations[0])
+				pLoc = self.unit.location.map_location()
+				closestDist = pLoc.distance_squared_to(karnoniteLocations[0])
+				self.closestLoc = 0
+				for i in range(1, len(karnoniteLocations)):
+					dist = pLoc.distance_squared_to(karnoniteLocations[i])
+					if dist < closestDist:
+						closestDist = dist
+						self.closestLoc = i
+				self.navigateToPoint(karnoniteLocations[self.closestLoc])
+				print("NewLoc: " + str(self.closestLoc) + " " + str(karnoniteLocations[self.closestLoc]) + " : " + str(self.id))
+				karnoniteLocations = np.delete(karnoniteLocations, [self.closestLoc])
+				
 		else:
 			return False
 		
