@@ -110,7 +110,7 @@ class Worker(Unit):
 		global EarthMap
 		global karnoniteLocations
 		global gc
-		
+
 		if unit.location.is_on_map():
 			if len(path) != 0:
 				if len(path) != 1:
@@ -129,7 +129,7 @@ class Worker(Unit):
 						print("Harvesting..." + str(unit.id))
 						return path
 					else:
-						print("Can't harvest more..." + str(unit.id))
+						print("Can't harvest more..." + str(unit.id) + " | " + str(len(karnoniteLocations)))
 						return []
 			elif len(karnoniteLocations) != 0:
 				pLoc = unit.location.map_location()
@@ -171,14 +171,14 @@ class Worker(Unit):
 				tLoc2 = bc.MapLocation(bc.Planet.Earth, pLoc.x, pLoc.y + dir[1])
 				tLoc3 = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 				
-				if EarthMap.is_passable_terrain_at(tLoc1) and EarthMap.is_passable_terrain_at(tLoc2) and EarthMap.is_passable_terrain_at(tLoc3):
+				if EarthMap.is_passable_terrain_at(tLoc1) and EarthMap.is_passable_terrain_at(tLoc2) and EarthMap.is_passable_terrain_at(tLoc3) and not gc.has_unit_at_location(tLoc1) and not gc.has_unit_at_location(tLoc2) and not gc.has_unit_at_location(tLoc3):
 					path.append(pLoc.direction_to(dLoc))
 					pLoc = tLoc3
 				else:
-					if not EarthMap.is_passable_terrain_at(tLoc1):
+					if not EarthMap.is_passable_terrain_at(tLoc1) or not gc.has_unit_at_location(tLoc1):
 						nDir = pLoc.direction_to(tLoc1) - 1
 						wallDir = pLoc.direction_to(tLoc1)
-					elif not EarthMap.is_passable_terrain_at(tLoc2):
+					elif not EarthMap.is_passable_terrain_at(tLoc2) or not gc.has_unit_at_location(tLoc2):
 						nDir = pLoc.direction_to(tLoc2) - 1
 						wallDir = pLoc.direction_to(tLoc2)
 					else:
@@ -201,7 +201,7 @@ class Worker(Unit):
 						dir = self.convertDirection(nDir)
 						tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 						
-						if EarthMap.is_passable_terrain_at(tLoc):
+						if EarthMap.is_passable_terrain_at(tLoc) or not gc.has_unit_at_location(tLoc):
 							path.append(nDir)
 							pLoc = tLoc
 							break
@@ -222,10 +222,10 @@ class Worker(Unit):
 						
 						tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 						wallLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + wallD[0], pLoc.y + wallD[1])
-						if EarthMap.is_passable_terrain_at(tLoc) and EarthMap.is_passable_terrain_at(wallLoc) == False:
+						if EarthMap.is_passable_terrain_at(tLoc) and EarthMap.is_passable_terrain_at(wallLoc) == False or not gc.has_unit_at_location(tLoc1) and gc.has_unit_at_location(wallLoc):
 							path.append(nDir)
 							pLoc = tLoc
-						elif EarthMap.is_passable_terrain_at(wallLoc) == True:
+						elif EarthMap.is_passable_terrain_at(wallLoc) == True or not gc.has_unit_at_location(wallLoc):
 							#Continue heading along the same wall
 							path.append(wallDir)
 							pLoc = wallLoc
@@ -235,7 +235,7 @@ class Worker(Unit):
 							tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 							
 							#But if you can now continue toward the goal then do so
-							if EarthMap.is_passable_terrain_at(tLoc):
+							if EarthMap.is_passable_terrain_at(tLoc) or not gc.has_unit_at_location(tLoc1):
 								path.append(pLoc.direction_to(dLoc))
 								pLoc = tLoc
 								break
