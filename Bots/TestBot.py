@@ -16,6 +16,8 @@ dir = list(bc.Direction)
 myTeam = gc.team()
 
 error = False
+
+'''
 units = np.array([])
 workers = np.array([])
 knights = np.array([])
@@ -24,6 +26,16 @@ mages = np.array([])
 healers = np.array([])
 factories = np.array([])
 rockets = np.array([])
+'''
+
+units = {}
+workers = {}
+knights = {}
+rangers = {}
+mages = {}
+healers = {}
+factories = {}
+rockets = {}
 
 EarthMap = gc.starting_map(bc.Planet.Earth)
 karnoniteLocations = np.array([])
@@ -43,9 +55,8 @@ class Unit:
 	
 	uCount = 0
 	
-	def __init__(self, id, unit):
-		self.id = id
-		self.unit = unit
+	def __init__(self):
+		self.hi = 0
 		#uCount = uCount + 1
 		
 	def actionType(self, type):
@@ -55,30 +66,26 @@ class Worker(Unit):
 
 	count = 0
 	
-	def __init__(self, id, unit):
-		super().__init__(id, unit)
-		self.path = []
-		self.first = True
-		self.pathCount = 0
-		self.closestLoc = 0
+	def __init__(self):
+		super().__init__()
 		#count = count + 1
 		
 	def actionType(self, type):
 		super().actionType(type)
 	
 	#Builds a factory in the specified direction, if not build in any direction
-	def blueprintFactory(self, *direction):
+	def blueprintFactory(self, unit, *direction):
 		global factories
 		
-		if self.unit.location.is_on_map():
+		if unit.location.is_on_map():
 			if direction != ():
 				directions = direction
 			else:
 				directions = list(bc.Direction)
 			
 			for d in directions:
-				if gc.can_blueprint(self.unit.id, bc.UnitType.Factory, d):
-					gc.blueprint(self.unit.id, bc.UnitType.Factory, d)
+				if gc.can_blueprint(unit.id, bc.UnitType.Factory, d):
+					gc.blueprint(unit.id, bc.UnitType.Factory, d)
 					print("Blueprinted")
 					return True
 					break
@@ -89,78 +96,83 @@ class Worker(Unit):
 			return False
 	
 	#Builds whatever factory is nearby	
-	def buildFactory(self):
-		if self.unit.location.is_on_map():
-			near = gc.sense_nearby_units(self.unit.location.map_location(), 1)
+	def buildFactory(self, unit):
+		if unit.location.is_on_map():
+			near = gc.sense_nearby_units(unit.location.map_location(), 1)
 			for i in near:
-				if gc.can_build(self.unit.id, i.id):
-					gc.build(self.unit.id, i.id)
+				if gc.can_build(unit.id, i.id):
+					gc.build(unit.id, i.id)
 					print("Building")
 		else:
 			return False
 			
-	def mineKarbonite(self):
+	def mineKarbonite(self, unit, path):
 		global EarthMap
 		global karnoniteLocations
 		global gc
 		
-		if self.unit.location.is_on_map():
-			if self.path != []:
-				if self.pathCount < len(self.path):
-					if gc.can_move(self.id, self.path[self.pathCount]) and gc.is_move_ready(self.id):	
-						gc.move_robot(self.id, self.path[self.pathCount])
-						self.pathCount = self.pathCount + 1
+		if unit.location.is_on_map():
+			if len(path) != 0:
+				if len(path) != 1:
+					if gc.can_move(unit.id, path[0]) and gc.is_move_ready(unit.id):	
+						gc.move_robot(unit.id, path[0])
+						del path[0]
+						print("Deleted: " + str(len(path)) + " : " + str(unit.id))
+						return path
 					else:
-						print("CM: " + str(self.id) + " Direction: " + str(self.path[self.pathCount]))
+						return path
+						print("CM: " + str(unit.id) + " Direction: " + str(path[0]))
 						
 				else:
-					if gc.can_harvest(self.id, self.path[len(self.path) - 1]):
-						gc.harvest(self.id, self.path[len(self.path) - 1])
-						print("Harvesting..." + str(self.id))
+					if gc.can_harvest(unit.id, path[0]):
+						gc.harvest(unit.id, path[0])
+						print("Harvesting..." + str(unit.id))
+						return path
 					else:
-						self.path = []
-						self.pathCount = 0
-						print("Can't harvest more..." + str(self.id))
-			else:
-				pLoc = self.unit.location.map_location()
+						print("Can't harvest more..." + str(unit.id))
+						return []
+			elif len(karnoniteLocations) != 0:
+				pLoc = unit.location.map_location()
 				closestDist = pLoc.distance_squared_to(karnoniteLocations[0])
-				self.closestLoc = 0
+				closestLoc = 0
 				for i in range(1, len(karnoniteLocations)):
 					dist = pLoc.distance_squared_to(karnoniteLocations[i])
 					if dist < closestDist:
 						closestDist = dist
-						self.closestLoc = i
-				self.navigateToPoint(karnoniteLocations[self.closestLoc])
-				print("NL:" + str(self.closestLoc) + " " + str(karnoniteLocations[self.closestLoc]) + " : " + str(self.id))
-				karnoniteLocations = np.delete(karnoniteLocations, [self.closestLoc])
+						closestLoc = i
+				print("NL:" + str(closestLoc) + " " + str(karnoniteLocations[closestLoc]) + " : " + str(unit.id))
+				loc = karnoniteLocations[closestLoc]
+				karnoniteLocations = np.delete(karnoniteLocations, [closestLoc])
 				
+				return self.navigateToPoint(unit, loc)
+			else:
+				return []
 		else:
-			return False
+			print("Unit not on map")
+			return []
 		
-	def navigateToPoint(self, dLoc):
+	def navigateToPoint(self, unit, dLoc):
 		global EarthMap
-		self.path = []
-		if self.unit.location.is_on_map():
-			pLoc = self.unit.location.map_location()
+		path = []
+		if unit.location.is_on_map():
+			pLoc = unit.location.map_location()
 			
 			while True:
 				if pLoc.distance_squared_to(dLoc) == 0:
 					n = 0
-					for i in self.path:
+					for i in path:
 						if type(i) == type(1):
-							self.path[n] = self.convertToDirection(i)
-						print(str(i) + " : " + str(self.id))
+							path[n] = self.convertToDirection(i)
 						n = n + 1
-					return True
-				#print(str(pLoc) + " <> " + str(dLoc) + " : " + str(self.id))		
+					print("Path returned: " + str(len(path)))
+					return path
 				dir = self.convertDirection(pLoc.direction_to(dLoc))
-				print(dir)
 				tLoc1 = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y)
 				tLoc2 = bc.MapLocation(bc.Planet.Earth, pLoc.x, pLoc.y + dir[1])
 				tLoc3 = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 				
 				if EarthMap.is_passable_terrain_at(tLoc1) and EarthMap.is_passable_terrain_at(tLoc2) and EarthMap.is_passable_terrain_at(tLoc3):
-					self.path.append(pLoc.direction_to(dLoc))
+					path.append(pLoc.direction_to(dLoc))
 					pLoc = tLoc3
 				else:
 					if not EarthMap.is_passable_terrain_at(tLoc1):
@@ -173,18 +185,16 @@ class Worker(Unit):
 						nDir = pLoc.direction_to(tLoc3) - 1
 						wallDir = pLoc.direction_to(tLoc3)
 					
-					print("Walllllll: " + str(wallDir))
 					#Finds the direction you can go along the obstacle
 					while True:
 						if pLoc.distance_squared_to(dLoc) == 0:
 							n = 0
-							for i in self.path:
+							for i in path:
 								if type(i) == type(1):
-									self.path[n] = self.convertToDirection(i)
-								print(str(i) + " : " + str(self.id))
+									path[n] = self.convertToDirection(i)
 								n = n + 1
-							return True
-						#print(str(pLoc) + " <> " + str(dLoc) + " : " + str(self.id) + " Finding new direction")			
+							return path
+						
 						#This flips the compass around because each direction is 0 through 7
 						if nDir < 0:
 							nDir = nDir + 8
@@ -192,7 +202,7 @@ class Worker(Unit):
 						tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 						
 						if EarthMap.is_passable_terrain_at(tLoc):
-							self.path.append(nDir)
+							path.append(nDir)
 							pLoc = tLoc
 							break
 						else:
@@ -202,24 +212,22 @@ class Worker(Unit):
 					while True:
 						if pLoc.distance_squared_to(dLoc) == 0:
 							n = 0
-							for i in self.path:
+							for i in path:
 								if type(i) == type(1):
-									self.path[n] = self.convertToDirection(i)
-								print(str(i) + " : " + str(self.id))
+									path[n] = self.convertToDirection(i)
 								n = n + 1
-							return True
-						#print(str(pLoc) + " <> " + str(dLoc) + " : " + str(self.id) + " Along Wall " + str(nDir) + " ; " + str(wallDir))		
+							return path
 						dir = self.convertDirection(nDir)
 						wallD = self.convertDirection(wallDir)
 						
 						tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 						wallLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + wallD[0], pLoc.y + wallD[1])
 						if EarthMap.is_passable_terrain_at(tLoc) and EarthMap.is_passable_terrain_at(wallLoc) == False:
-							self.path.append(nDir)
+							path.append(nDir)
 							pLoc = tLoc
 						elif EarthMap.is_passable_terrain_at(wallLoc) == True:
 							#Continue heading along the same wall
-							self.path.append(wallDir)
+							path.append(wallDir)
 							pLoc = wallLoc
 							nDir = wallDir
 							
@@ -228,12 +236,12 @@ class Worker(Unit):
 							
 							#But if you can now continue toward the goal then do so
 							if EarthMap.is_passable_terrain_at(tLoc):
-								self.path.append(pLoc.direction_to(dLoc))
+								path.append(pLoc.direction_to(dLoc))
 								pLoc = tLoc
 								break
 								
 		else:
-			return False
+			return []
 			
 	def convertDirection(self, dir):
 		if dir == bc.Direction.North:
@@ -279,8 +287,8 @@ class Knight(Unit):
 
 	count = 0
 	
-	def __init__(self, id, unit):
-		super().__init__(id, unit)
+	def __init__(self):
+		super().__init__()
 		#count = count + 1
 		
 	def actionType(self, type):
@@ -290,8 +298,8 @@ class Ranger(Unit):
 
 	count = 0
 	
-	def __init__(self, id, unit):
-		super().__init__(id, unit)
+	def __init__(self):
+		super().__init__()
 		#count = count + 1
 		
 	def actionType(self, type):
@@ -301,8 +309,8 @@ class Mage(Unit):
 	
 	count = 0
 	
-	def __init__(self, id, unit):
-		super().__init__(id, unit)
+	def __init__(self):
+		super().__init__()
 		#count = count + 1
 		
 	def actionType(self, type):
@@ -312,8 +320,8 @@ class Healer(Unit):
 	
 	count = 0
 	
-	def __init__(self, id, unit):
-		super().__init__(id, unit)
+	def __init__(self):
+		super().__init__()
 		#count = count + 1
 		
 	def actionType(self, type):
@@ -323,34 +331,34 @@ class Factory(Unit):
 	
 	count = 0
 	
-	def __init__(self, id, unit):
-		super().__init__(id, unit)
+	def __init__(self):
+		super().__init__()
 		#count = count + 1
 		
 	def actionType(self, type):
 		super().actionType(type)
 		
-	def unloadUnit(self, *direction):
+	def unloadUnit(self, unit, *direction):
 		if direction != ():
 			directions = direction
 		else:
 			directions = list(bc.Direction)
 		
 		for d in directions:
-			if gc.can_unload(self.unit.id, d):
-				gc.unload(self.unit.id, d)
+			if gc.can_unload(unit.id, d):
+				gc.unload(unit.id, d)
 	
-	def buildUnit(self, type):
-		if gc.can_produce_robot(self.unit.id, type):
-			gc.produce_robot(self.unit.id, type)
+	def buildUnit(self, unit, type):
+		if gc.can_produce_robot(unit.id, type):
+			gc.produce_robot(unit.id, type)
 			
 	
 class Rocket(Unit):
 	
 	count = 0
 	
-	def __init__(self, id, unit):
-		super().__init__(id, unit)
+	def __init__(self):
+		super().__init__()
 		#count = count + 1
 		
 	def actionType(self, type):
@@ -365,38 +373,63 @@ def refreshUnits():
 	global healers
 	global factories
 	global rockets
+	global gc
 	
-	#This seems super inefficient but I can't think of a better way to do it
-	units = np.array([])
-	workers = np.array([])
-	knights = np.array([])
-	rangers = np.array([])
-	mages = np.array([])
-	healers = np.array([])
-	factories = np.array([])
-	rockets = np.array([])
+	w = Worker()
+	f = Factory()
 	
 	for unit in gc.my_units():
 		type = unit.unit_type
-		
-		#Adds the units to one respective unit array
-		np.append(units, Unit(unit.id, unit))
-		
+		#print(str(unit.id) + " | " + str(type))
 		#Separates the units into separate arrays
 		if type == bc.UnitType.Worker:
-			workers = np.append(workers, [Worker(unit.id, unit)])
+			if unit.id in workers:
+				#Do some logic
+				
+				if len(factories) < maxFactory:
+					print("Not enough factories")
+					w.blueprintFactory(unit)
+				else:
+					workers[unit.id]["Path"] = w.mineKarbonite(unit, workers[unit.id]["Path"])
+					
+			else:
+				workers[unit.id] = {"Path":[]}
 		elif type == bc.UnitType.Knight:
-			knights = np.append(knights, [Knight(unit.id, unit)])
+			if unit.id in knights:
+				#Do some logic
+				knights[1] = 4
+			else:
+				knights[unit.id] = {}
 		elif type == bc.UnitType.Ranger:
-			rangers = np.append(rangers, [Ranger(unit.id, unit)])
+			if unit.id in rangers:
+				#Do some logic
+				rangers[1] = 4
+			else:
+				rangers[unit.id] = {}
 		elif type == bc.UnitType.Mage:
-			mages = np.append(mages, [Mage(unit.id, unit)])
+			if unit.id in mages:
+				#Do some logic
+				mages[1] = 4
+			else:
+				mages[unit.id] = {}
 		elif type == bc.UnitType.Healer:
-			healers = np.append(healers, [Healer(unit.id, unit)])
+			if unit.id in healers:
+				#Do some logic
+				healers[1] = 4
+			else:
+				healers[unit.id] = {}
 		elif type == bc.UnitType.Factory:
-			factories = np.append(factories, [Factory(unit.id, unit)])
+			if unit.id in factories:
+				#Do some logic
+				factories[1] = 4
+			else:
+				factories[unit.id] = {}
 		elif type == bc.UnitType.Rocket:
-			rockets = np.append(rockets, [Rocket(unit.id, unit)])
+			if unit.id in rockets:
+				#Do some logic
+				rockets[1] = 4
+			else:
+				rockets[unit.id] = {}
 	
 
 while True:
@@ -409,26 +442,8 @@ while True:
 		if round == 1:
 			refreshUnits()
 			totalUnits = len(gc.my_units())
-			previousUnits = len(gc.my_units())
 		elif gc.planet() == bc.Planet.Earth:
-			
-			for w in workers:
-				if factories.size < maxFactory:
-					w.blueprintFactory()
-				else:
-					w.mineKarbonite()
-				#w.buildFactory()
-				
-			for f in factories:
-				#To select what unit to build do bc.UnitType."Whatever"
-				f.buildUnit(bc.UnitType.Worker)
-				#If you don't put any direction it'll just unload in an empty square
-				f.unloadUnit()
-		
-		if totalUnits != previousUnits:
 			refreshUnits()
-			previousUnits = len(gc.my_units())
-			print("Units Refreshed: " + str(totalUnits))
 		
 	except Exception as e:
 		if error == False:
