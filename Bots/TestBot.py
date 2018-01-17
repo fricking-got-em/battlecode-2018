@@ -49,7 +49,7 @@ for x in range(EarthMap.width - 1):
 
 totalUnits = 0
 previousUnits = 0
-maxFactory = 1
+maxFactory = 0
 
 class Unit:
 	
@@ -120,8 +120,8 @@ class Worker(Unit):
 						print("Deleted: " + str(len(path)) + " : " + str(unit.id))
 						return path
 					else:
+						print("CM: " + str(unit.id) + " Direction: " + str(len(path)))
 						return path
-						print("CM: " + str(unit.id) + " Direction: " + str(path[0]))
 						
 				else:
 					if gc.can_harvest(unit.id, path[0]):
@@ -158,6 +158,7 @@ class Worker(Unit):
 			pLoc = unit.location.map_location()
 			
 			while True:
+				#print("1")
 				if pLoc.distance_squared_to(dLoc) == 0:
 					n = 0
 					for i in path:
@@ -171,22 +172,34 @@ class Worker(Unit):
 				tLoc2 = bc.MapLocation(bc.Planet.Earth, pLoc.x, pLoc.y + dir[1])
 				tLoc3 = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 				
-				if EarthMap.is_passable_terrain_at(tLoc1) and EarthMap.is_passable_terrain_at(tLoc2) and EarthMap.is_passable_terrain_at(tLoc3) and not gc.has_unit_at_location(tLoc1) and not gc.has_unit_at_location(tLoc2) and not gc.has_unit_at_location(tLoc3):
+				#This makes sure it doesn't check its own space
+				if dir[0] != 0:
+					tLoc4 = tLoc1
+				else:
+					tLoc4 = tLoc3
+				if dir[1] != 0:
+					tLoc5 = tLoc2
+				else:
+					tLoc5 = tLoc3
+				
+				if EarthMap.is_passable_terrain_at(tLoc1) and EarthMap.is_passable_terrain_at(tLoc2) and EarthMap.is_passable_terrain_at(tLoc3) and not gc.has_unit_at_location(tLoc4) and not gc.has_unit_at_location(tLoc5) and not gc.has_unit_at_location(tLoc3):
 					path.append(pLoc.direction_to(dLoc))
 					pLoc = tLoc3
 				else:
-					if not EarthMap.is_passable_terrain_at(tLoc1) or not gc.has_unit_at_location(tLoc1):
-						nDir = pLoc.direction_to(tLoc1) - 1
-						wallDir = pLoc.direction_to(tLoc1)
-					elif not EarthMap.is_passable_terrain_at(tLoc2) or not gc.has_unit_at_location(tLoc2):
-						nDir = pLoc.direction_to(tLoc2) - 1
+					#nDir used to be minus 1
+					if not EarthMap.is_passable_terrain_at(tLoc3) or gc.has_unit_at_location(tLoc3):
+						nDir = pLoc.direction_to(tLoc3) - 2
+						wallDir = pLoc.direction_to(tLoc3)
+					elif not EarthMap.is_passable_terrain_at(tLoc2) or gc.has_unit_at_location(tLoc5):
+						nDir = pLoc.direction_to(tLoc2) - 2
 						wallDir = pLoc.direction_to(tLoc2)
 					else:
-						nDir = pLoc.direction_to(tLoc3) - 1
-						wallDir = pLoc.direction_to(tLoc3)
+						nDir = pLoc.direction_to(tLoc1) - 2
+						wallDir = pLoc.direction_to(tLoc1)
 					
 					#Finds the direction you can go along the obstacle
 					while True:
+						#print("2")
 						if pLoc.distance_squared_to(dLoc) == 0:
 							n = 0
 							for i in path:
@@ -201,15 +214,18 @@ class Worker(Unit):
 						dir = self.convertDirection(nDir)
 						tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 						
-						if EarthMap.is_passable_terrain_at(tLoc) or not gc.has_unit_at_location(tLoc):
-							path.append(nDir)
-							pLoc = tLoc
+						if EarthMap.is_passable_terrain_at(tLoc) and not gc.has_unit_at_location(tLoc):
+							#path.append(nDir)
+							#pLoc = tLoc
+							print(dir)
 							break
 						else:
-							nDir = nDir - 1
+							#nDir used to be - 1 not - 2
+							nDir = nDir - 2
 					
 					#Move in that direction along the obstacle until it can head in the right direction again
 					while True:
+						print("3 " + str(wallDir))
 						if pLoc.distance_squared_to(dLoc) == 0:
 							n = 0
 							for i in path:
@@ -222,20 +238,27 @@ class Worker(Unit):
 						
 						tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 						wallLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + wallD[0], pLoc.y + wallD[1])
-						if EarthMap.is_passable_terrain_at(tLoc) and EarthMap.is_passable_terrain_at(wallLoc) == False or not gc.has_unit_at_location(tLoc1) and gc.has_unit_at_location(wallLoc):
+						
+						if EarthMap.is_passable_terrain_at(tLoc) and EarthMap.is_passable_terrain_at(wallLoc) == False and not gc.has_unit_at_location(tLoc):
 							path.append(nDir)
 							pLoc = tLoc
-						elif EarthMap.is_passable_terrain_at(wallLoc) == True or not gc.has_unit_at_location(wallLoc):
+							#print("1p")
+						elif EarthMap.is_passable_terrain_at(tLoc) and not gc.has_unit_at_location(tLoc) and gc.has_unit_at_location(wallLoc):
+							path.append(nDir)
+							pLoc = tLoc
+							#print("2p " + str(nDir))
+						elif EarthMap.is_passable_terrain_at(wallLoc) == True and not gc.has_unit_at_location(wallLoc):
 							#Continue heading along the same wall
+							#print("3ppp")
 							path.append(wallDir)
 							pLoc = wallLoc
 							nDir = wallDir
 							
 							dir = self.convertDirection(pLoc.direction_to(dLoc))
 							tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
-							
 							#But if you can now continue toward the goal then do so
-							if EarthMap.is_passable_terrain_at(tLoc) or not gc.has_unit_at_location(tLoc1):
+							if EarthMap.is_passable_terrain_at(tLoc) and not gc.has_unit_at_location(tLoc):
+								#print("4p")
 								path.append(pLoc.direction_to(dLoc))
 								pLoc = tLoc
 								break
@@ -434,7 +457,7 @@ def refreshUnits():
 
 while True:
 	round = gc.round()
-	#print("Round: " + str(round))
+	print("Round: " + str(round))
 
 	try:
 		totalUnits = len(gc.my_units())
