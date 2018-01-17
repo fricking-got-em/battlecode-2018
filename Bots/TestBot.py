@@ -111,7 +111,7 @@ class Worker(Unit):
 						gc.move_robot(self.id, self.path[self.pathCount])
 						self.pathCount = self.pathCount + 1
 					else:
-						print("Can't Move : " + str(self.id) + " Direction: " + str(self.path[self.pathCount]))
+						print("CM: " + str(self.id) + " Direction: " + str(self.path[self.pathCount]))
 						
 				else:
 					if gc.can_harvest(self.id, self.path[len(self.path) - 1]):
@@ -131,7 +131,7 @@ class Worker(Unit):
 						closestDist = dist
 						self.closestLoc = i
 				self.navigateToPoint(karnoniteLocations[self.closestLoc])
-				print("NewLoc: " + str(self.closestLoc) + " " + str(karnoniteLocations[self.closestLoc]) + " : " + str(self.id))
+				print("NL:" + str(self.closestLoc) + " " + str(karnoniteLocations[self.closestLoc]) + " : " + str(self.id))
 				karnoniteLocations = np.delete(karnoniteLocations, [self.closestLoc])
 				
 		else:
@@ -139,6 +139,7 @@ class Worker(Unit):
 		
 	def navigateToPoint(self, dLoc):
 		global EarthMap
+		self.path = []
 		if self.unit.location.is_on_map():
 			pLoc = self.unit.location.map_location()
 			
