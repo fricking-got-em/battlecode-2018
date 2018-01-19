@@ -106,7 +106,7 @@ class Worker(Unit):
 		else:
 			return False
 			
-	def mineKarbonite(self, unit, path):
+	def mineKarbonite(self, unit, path, dest):
 		global EarthMap
 		global karnoniteLocations
 		global gc
@@ -118,154 +118,152 @@ class Worker(Unit):
 						gc.move_robot(unit.id, path[0])
 						del path[0]
 						print("Deleted: " + str(len(path)) + " : " + str(unit.id))
-						return path
+						return [path, dest]
 					else:
 						print("CM: " + str(unit.id) + " Direction: " + str(len(path)))
-						return path
+						return [self.navigateToPoint(unit, dest), dest]
 						
 				else:
 					if gc.can_harvest(unit.id, path[0]):
 						gc.harvest(unit.id, path[0])
 						print("Harvesting..." + str(unit.id))
-						return path
+						return [path, dest]
 					else:
 						print("Can't harvest more..." + str(unit.id) + " | " + str(len(karnoniteLocations)))
-						return []
+						return [[], dest]
 			elif len(karnoniteLocations) != 0:
 				pLoc = unit.location.map_location()
 				closestDist = pLoc.distance_squared_to(karnoniteLocations[0])
 				closestLoc = 0
 				for i in range(1, len(karnoniteLocations)):
 					dist = pLoc.distance_squared_to(karnoniteLocations[i])
-					if dist < closestDist:
+					if dist < closestDist and not gc.has_unit_at_location(karnoniteLocations[i]):
 						closestDist = dist
 						closestLoc = i
-				print("NL:" + str(closestLoc) + " " + str(karnoniteLocations[closestLoc]) + " : " + str(unit.id))
+				#print("NL:" + str(closestLoc) + " " + str(karnoniteLocations[closestLoc]) + " : " + str(unit.id))
 				loc = karnoniteLocations[closestLoc]
 				karnoniteLocations = np.delete(karnoniteLocations, [closestLoc])
 				
-				return self.navigateToPoint(unit, loc)
+				return [self.navigateToPoint(unit, loc), loc]
 			else:
-				return []
+				return [[], dest]
 		else:
 			print("Unit not on map")
-			return []
-		
+			return [[], dest]
+	
 	def navigateToPoint(self, unit, dLoc):
 		global EarthMap
-		path = []
+		branches = []
+		locs = []
 		if unit.location.is_on_map():
 			pLoc = unit.location.map_location()
-			
+			locs.append(pLoc)
 			while True:
-				#print("1")
-				if pLoc.distance_squared_to(dLoc) == 0:
-					n = 0
-					for i in path:
-						if type(i) == type(1):
-							path[n] = self.convertToDirection(i)
-						n = n + 1
-					print("Path returned: " + str(len(path)))
-					return path
-				dir = self.convertDirection(pLoc.direction_to(dLoc))
-				tLoc1 = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y)
-				tLoc2 = bc.MapLocation(bc.Planet.Earth, pLoc.x, pLoc.y + dir[1])
-				tLoc3 = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
+				lNum = len(locs)-1
+				if self.atLocation(locs[lNum],dLoc):
+					return self.convertLocs(locs)
 				
-				#This makes sure it doesn't check its own space
-				if dir[0] != 0:
-					tLoc4 = tLoc1
-				else:
-					tLoc4 = tLoc3
-				if dir[1] != 0:
-					tLoc5 = tLoc2
-				else:
-					tLoc5 = tLoc3
+				dir = self.convertDirection(locs[lNum].direction_to(dLoc))
+				testLoc = bc.MapLocation(bc.Planet.Earth, locs[lNum].x + dir[0], locs[lNum].y + dir[1])
 				
-				if EarthMap.is_passable_terrain_at(tLoc1) and EarthMap.is_passable_terrain_at(tLoc2) and EarthMap.is_passable_terrain_at(tLoc3) and not gc.has_unit_at_location(tLoc4) and not gc.has_unit_at_location(tLoc5) and not gc.has_unit_at_location(tLoc3):
-					path.append(pLoc.direction_to(dLoc))
-					pLoc = tLoc3
+				if self.move(locs[lNum], dir) != bc.MapLocation(bc.Planet.Earth, -1, -1):
+					locs.append(testLoc)
+					#print(testLoc)
 				else:
-					#nDir used to be minus 1
-					if not EarthMap.is_passable_terrain_at(tLoc3) or gc.has_unit_at_location(tLoc3):
-						nDir = pLoc.direction_to(tLoc3) - 2
-						wallDir = pLoc.direction_to(tLoc3)
-					elif not EarthMap.is_passable_terrain_at(tLoc2) or gc.has_unit_at_location(tLoc5):
-						nDir = pLoc.direction_to(tLoc2) - 2
-						wallDir = pLoc.direction_to(tLoc2)
-					else:
-						nDir = pLoc.direction_to(tLoc1) - 2
-						wallDir = pLoc.direction_to(tLoc1)
-					
-					#Finds the direction you can go along the obstacle
-					while True:
-						#print("2")
-						if pLoc.distance_squared_to(dLoc) == 0:
-							n = 0
-							for i in path:
-								if type(i) == type(1):
-									path[n] = self.convertToDirection(i)
-								n = n + 1
-							return path
-						
-						#This flips the compass around because each direction is 0 through 7
-						if nDir < 0:
-							nDir = nDir + 8
-						dir = self.convertDirection(nDir)
-						tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
-						
-						if EarthMap.is_passable_terrain_at(tLoc) and not gc.has_unit_at_location(tLoc):
-							#path.append(nDir)
-							#pLoc = tLoc
-							print(dir)
-							break
-						else:
-							#nDir used to be - 1 not - 2
-							nDir = nDir - 2
-					
-					#Move in that direction along the obstacle until it can head in the right direction again
-					while True:
-						print("3 " + str(wallDir))
-						if pLoc.distance_squared_to(dLoc) == 0:
-							n = 0
-							for i in path:
-								if type(i) == type(1):
-									path[n] = self.convertToDirection(i)
-								n = n + 1
-							return path
-						dir = self.convertDirection(nDir)
-						wallD = self.convertDirection(wallDir)
-						
-						tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
-						wallLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + wallD[0], pLoc.y + wallD[1])
-						
-						if EarthMap.is_passable_terrain_at(tLoc) and EarthMap.is_passable_terrain_at(wallLoc) == False and not gc.has_unit_at_location(tLoc):
-							path.append(nDir)
-							pLoc = tLoc
-							#print("1p")
-						elif EarthMap.is_passable_terrain_at(tLoc) and not gc.has_unit_at_location(tLoc) and gc.has_unit_at_location(wallLoc):
-							path.append(nDir)
-							pLoc = tLoc
-							#print("2p " + str(nDir))
-						elif EarthMap.is_passable_terrain_at(wallLoc) == True and not gc.has_unit_at_location(wallLoc):
-							#Continue heading along the same wall
-							#print("3ppp")
-							path.append(wallDir)
-							pLoc = wallLoc
-							nDir = wallDir
-							
-							dir = self.convertDirection(pLoc.direction_to(dLoc))
-							tLoc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
-							#But if you can now continue toward the goal then do so
-							if EarthMap.is_passable_terrain_at(tLoc) and not gc.has_unit_at_location(tLoc):
-								#print("4p")
-								path.append(pLoc.direction_to(dLoc))
-								pLoc = tLoc
-								break
-								
-		else:
-			return []
+					kP = self.followWall(locs[lNum], dLoc, unit)
+					break
+	
+	def convertLocs(self, locs):
+		path = []
+		for i in range(len(locs)-1):
+			path.append(locs[i].direction_to(locs[i+1]))
+		return path
 			
+	def followWall(self, loc, dLoc, unit):
+		
+		walls = self.checkWalls(loc)
+		print(len(walls))
+		if len(walls) == 0:
+			print("No walls. How")
+		elif len(walls) == 1:
+			b = Branch(walls[0], loc)
+			b.extend()
+		elif len(walls) == 2:
+			print("Welp")
+			
+		else:
+			print("I dunno")
+		
+				
+	def canMoveToDestination(self, tLocs, dLoc, unit):
+		global EarthMap
+		locs = list(tLocs)
+		if unit.location.is_on_map():
+			pLoc = unit.location.map_location()
+			locs.append(pLoc)
+			while True:
+				lNum = len(locs)-1
+				if self.atLocation(locs[lNum],dLoc):
+					return True
+				
+				dir = self.convertDirection(locs[lNum].direction_to(dLoc))
+				testLoc = bc.MapLocation(bc.Planet.Earth, locs[lNum].x + dir[0], locs[lNum].y + dir[1])
+				
+				if self.move(locs[lNum], dir) != bc.MapLocation(bc.Planet.Earth, -1, -1):
+					locs.append(testLoc)
+				else:
+					return False
+	
+	
+	def move(self, loc, dir):
+		test1 = bc.MapLocation(bc.Planet.Earth, loc.x + dir[0], loc.y + dir[1])
+		test2 = bc.MapLocation(bc.Planet.Earth, loc.x + dir[0], loc.y)
+		test3 = bc.MapLocation(bc.Planet.Earth, loc.x, loc.y + dir[1])
+		
+		if EarthMap.is_passable_terrain_at(test1) and EarthMap.is_passable_terrain_at(test2) and EarthMap.is_passable_terrain_at(test3) and not self.checkUnit(dir, loc):
+			return test1
+		else:
+			return bc.MapLocation(bc.Planet.Earth, -1, -1)
+	
+	def atLocation(self, pLoc, dLoc):
+		if pLoc.distance_squared_to(dLoc) == 0:
+			return True
+		else:
+			return False
+	
+	def checkUnit(self, dir, pLoc):
+		if dir[0] != 0:
+			loc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y)
+			if gc.has_unit_at_location(loc):
+				return True
+		if dir[1] != 0:
+			loc = bc.MapLocation(bc.Planet.Earth, pLoc.x, pLoc.y + dir[1])
+			if gc.has_unit_at_location(loc):
+				return True	
+		if dir[0] != 0 and dir[1] != 0:
+			loc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
+			if gc.has_unit_at_location(loc):
+				return True	
+		return False
+		
+	def checkWalls(self, pLoc):
+		global EarthMap
+		global gc
+		
+		walls = []
+		
+		directions = list(bc.Direction)
+		
+		#Then check the diagonal directions
+		for i in range(0, len(directions)-1, 2):
+			direction = self.convertDirection(directions[i])
+			loc = bc.MapLocation(bc.Planet.Earth, pLoc.x + direction[0], pLoc.y + direction[1])
+			if gc.has_unit_at_location(loc) or not EarthMap.is_passable_terrain_at(loc):
+				walls.append(directions[i])
+		
+		return walls
+		
+		
 	def convertDirection(self, dir):
 		if dir == bc.Direction.North:
 			return [0,1]
@@ -305,6 +303,208 @@ class Worker(Unit):
 			return bc.Direction.Northwest
 		elif n == 8:
 			return bc.Direction.Center
+	
+	def cToD(self, dir):
+		if dir == [0,1]:
+			return bc.Direction.North
+		elif dir == [1,1]:
+			return bc.Direction.Northeast
+		elif dir == [1,0]:
+			return bc.Direction.East
+		elif dir == [1,-1]:
+			return bc.Direction.Southeast
+		elif dir == [0,-1]:
+			return bc.Direction.South
+		elif dir == [-1,-1]:
+			return bc.Direction.Southwest
+		elif dir == [-1,0]:
+			return bc.Direction.West
+		elif dir == [-1,1]:
+			return bc.Direction.Northwest
+		else:
+			return [0,0]
+			
+
+class Branch():
+
+	def __init__(self, wallDirection, startingLoc):
+		self.wallDirection = wallDirection
+		self.startingLoc = startingLoc
+		self.direction = self.tDirection(wallDirection)
+		self.nodes = []
+	
+	def tDirection(self, dir):
+		
+		directions = []
+		if self.wallDirection % 2 == 0:
+			dir = dir - 2
+			if dir < 0:
+				dir = dir + 8
+			directions.append(dir)
+			
+			dir = directions[0] - 4
+			if dir < 0:
+				dir = dir + 8
+			directions.append(dir)
+			
+			return directions
+		else:
+			#This means it's a corner piece. Only give when colliding with two walls or just a corner wall
+			dir = self.convertDirection(self.wallDirection - 1)
+			testLocation = bc.MapLocation(bc.Planet.Earth, self.startingLoc.x + dir[0], self.startingLoc.y + dir[1])
+			
+			#Passible terrain at this spot means it's only a corner piece
+			if EarthMap.is_passable_terrain_at(testLocation) and not gc.has_unit_at_location(testLocation):
+				dir = dir - 1
+				if dir < 0:
+					dir = dir + 8
+				directions.append(dir)
+				
+				dir = directions[0] + 1
+				if dir > 7:
+					dir = dir - 8
+				directions.append(dir)
+			else:
+				#This means it must be in a corner with two walls to it
+				dir = dir - 3
+				if dir < 0:
+					dir = dir + 8
+				directions.append(dir)
+				
+				dir = directions[0] + 3
+				if dir > 7:
+					dir = dir - 8
+				directions.append(dir)
+			
+			return directions
+
+	#Will later need to make this function try to reach the destination after every node is found
+	def extend(self, *extendDirection):
+		
+		print("Extending...")
+		global gc
+		global EarthMap
+		
+		if len(extendDirection) != 0:
+			self.direction = extendDirection
+		
+		hitWall1 = False
+		hitWall2 = False
+		
+		#Can always ignore the first wall location
+		first = True
+		
+		loc1 = self.startingLoc
+		while True:
+
+			dir = self.convertDirection(self.direction[0])
+			print("First: " + str(loc1) + " | " + str(self.wallDirection))
+			wallDir = self.convertDirection(self.wallDirection)
+			
+			wallLocation = bc.MapLocation(bc.Planet.Earth, loc1.x + wallDir[0], loc1.y + wallDir[1])
+			newPlayerLocation = bc.MapLocation(bc.Planet.Earth, loc1.x + dir[0], loc1.y + dir[1])
+			
+			#Checks if the wall is no longer there or if the player has run into a wall
+			if EarthMap.is_passable_terrain_at(wallLocation) and not gc.has_unit_at_location(wallLocation) and first == False:
+				self.nodes.append(loc1)
+				break
+			elif not EarthMap.is_passable_terrain_at(newPlayerLocation) or gc.has_unit_at_location(newPlayerLocation):
+				self.nodes.append(loc1)
+				hitWall1 = True
+				break
+			else:
+				loc1 = newPlayerLocation
+			
+			if first == True:
+				first = False
+		
+		#Can always ignore the first wall location
+		first = True
+		
+		#This loop goes in the opposite direction
+		loc2 = self.startingLoc
+		if len(self.direction) >= 2:
+			while True:
+				#Flips the direction of travel
+				dir = self.convertDirection(self.direction[1])
+				print("Second: " + str(loc2))
+				wallDir = self.convertDirection(self.wallDirection)
+				
+				wallLocation = bc.MapLocation(bc.Planet.Earth, loc2.x + wallDir[0], loc2.y + wallDir[1])
+				newPlayerLocation = bc.MapLocation(bc.Planet.Earth, loc2.x + dir[0], loc2.y + dir[1])
+				
+				#Checks if the wall is no longer there or if the player has run into a wall
+				if EarthMap.is_passable_terrain_at(wallLocation) and not gc.has_unit_at_location(wallLocation):
+					self.nodes.append(loc2)
+					break
+				elif not EarthMap.is_passable_terrain_at(newPlayerLocation) or gc.has_unit_at_location(newPlayerLocation):
+					self.nodes.append(loc2)
+					hitWall2 = True
+					break
+				else:
+					loc2 = newPlayerLocation
+				
+			print("Nodes: " + str(self.nodes[0]) + " | " + str(self.nodes[1]))
+			
+			#The function is recurrent and will continue to extend branches
+			if hitWall1 == False:
+				#The wall direction is now the opposite of the direction it was going because it rounded the corner
+				dir = self.direction[0] - 4
+				if dir < 0:
+					dir = dir + 8
+				b = Branch(dir, loc1)
+				b.extend(self.wallDirection)
+			else:
+				#The wall direction is the direction unit was trying to go because it hit a wall
+				b = Branch(self.direction[0], loc1)
+				b.extend()
+			if hitWall1 == False:
+				#The wall direction is now the opposite of the direction it was going because it rounded the corner
+				dir = self.direction[1] - 4
+				if dir < 0:
+					dir = dir + 8
+				b = Branch(dir, loc2)
+				b.extend(self.wallDirection)
+			else:
+				#The wall direction is the direction unit was trying to go because it hit a wall
+				b = Branch(self.direction[1], loc2)
+				b.extend()
+			
+		else:
+			print("Node: " + str(self.nodes[0]))
+			
+			#The function is recurrent and will continue to extend branches
+			if hitWall1 == False:
+				#The wall direction is now the opposite of the direction it was going because it rounded the corner
+				dir = self.direction[0] - 4
+				if dir < 0:
+					dir = dir + 8
+				b = Branch(dir, loc1)
+				b.extend(self.wallDirection)
+			else:
+				#The wall direction is the direction unit was trying to go because it hit a wall
+				b = Branch(self.direction[0], loc1)
+				b.extend()
+			
+	def convertDirection(self, dir):
+		if dir == bc.Direction.North:
+			return [0,1]
+		elif dir == bc.Direction.Northeast:
+			return [1,1]
+		elif dir == bc.Direction.East:
+			return [1,0]
+		elif dir == bc.Direction.Southeast:
+			return [1,-1]
+		elif dir == bc.Direction.South:
+			return [0,-1]
+		elif dir == bc.Direction.Southwest:
+			return [-1,-1]
+		elif dir == bc.Direction.West:
+			return [-1,0]
+		elif dir == bc.Direction.Northwest:
+			return [-1,1]
+		else:
+			return [0,0]
 		
 class Knight(Unit):
 
@@ -413,10 +613,11 @@ def refreshUnits():
 					print("Not enough factories")
 					w.blueprintFactory(unit)
 				else:
-					workers[unit.id]["Path"] = w.mineKarbonite(unit, workers[unit.id]["Path"])
-					
+					list = w.mineKarbonite(unit, workers[unit.id]["Path"], workers[unit.id]["Dest"])
+					workers[unit.id]["Path"] = list[0]
+					workers[unit.id]["Dest"] = list[1]
 			else:
-				workers[unit.id] = {"Path":[]}
+				workers[unit.id] = {"Path":[], "Dest":0}
 		elif type == bc.UnitType.Knight:
 			if unit.id in knights:
 				#Do some logic
