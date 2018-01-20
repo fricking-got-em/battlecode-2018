@@ -119,9 +119,13 @@ class Worker(Unit):
 						del path[0]
 						print("Deleted: " + str(len(path)) + " : " + str(unit.id))
 						return [path, dest]
+					elif path[0] == bc.Direction.Center:
+						del path[0]
+						return [path, dest]
 					else:
-						print("CM: " + str(unit.id) + " Direction: " + str(len(path)))
-						return [self.navigateToPoint(unit, dest), dest]
+						print("CM: " + str(unit.id) + " Direction: " + str(path))
+						#return [self.navigateToPoint(unit, dest), dest]
+						return [path, dest]
 						
 				else:
 					if gc.can_harvest(unit.id, path[0]):
@@ -170,8 +174,13 @@ class Worker(Unit):
 					locs.append(testLoc)
 					#print(testLoc)
 				else:
+					#Gives all of the key points necessary to get to the destination
 					kP = self.followWall(locs[lNum], dLoc, unit)
-					break
+					allLocations = [[unit.location.map_location()]]
+					for points in kP:
+						allLocations = self.canMoveToDestination(allLocations[0], None, dLoc, unit, None, None)
+					#The 1st part of the array are the locations
+					return self.convertLocs(allLocations[0])
 	
 	def convertLocs(self, locs):
 		path = []
@@ -180,31 +189,53 @@ class Worker(Unit):
 		return path
 			
 	def followWall(self, loc, dLoc, unit):
-		
+		branches = []
+		nBranches = []
+		temp = []
 		walls = self.checkWalls(loc)
-		print(len(walls))
 		if len(walls) == 0:
 			print("No walls. How")
 		elif len(walls) == 1:
 			b = Branch(walls[0], loc)
-			b.extend()
+			nBranches = nBranches + b.extend()
 		elif len(walls) == 2:
 			print("Welp")
-			
+			#That should be the corner piece between the two walls
+			b = Branch(int((walls[0] + walls[1])/(2), loc))
+			nBranches = nBranches + b.extend()
 		else:
 			print("I dunno")
 		
+		while True:
+			temp = []
+			for i in range(0, len(nBranches), 2):
+				#Every other value is the direction in which to extend the branch
+				dest = self.canMoveToDestination([], nBranches[i].getStartingLocation(), dLoc, unit, nBranches[i], nBranches[i + 1])
+				print("Destination: " + str(dLoc))
+				if dest[1] == False:
+					temp = temp + dest[2]
+				else:
+					keyLocations = [dLoc] + nBranches[i].getPath([])
+					print("KeyLocations: " + str(keyLocations))
+					return keyLocations
+					
+			nBranches = temp
+			branches.append(temp)
 				
-	def canMoveToDestination(self, tLocs, dLoc, unit):
+	def canMoveToDestination(self, tLocs, sLoc, dLoc, unit, branch, branchDirection):
 		global EarthMap
 		locs = list(tLocs)
 		if unit.location.is_on_map():
-			pLoc = unit.location.map_location()
-			locs.append(pLoc)
+			if len(locs) == 0:
+				pLoc = sLoc
+				locs.append(sLoc)
+			else:
+				pLoc = unit.location.map_location()
+				locs.append(pLoc)
 			while True:
 				lNum = len(locs)-1
 				if self.atLocation(locs[lNum],dLoc):
-					return True
+					return [locs, True]
 				
 				dir = self.convertDirection(locs[lNum].direction_to(dLoc))
 				testLoc = bc.MapLocation(bc.Planet.Earth, locs[lNum].x + dir[0], locs[lNum].y + dir[1])
@@ -212,9 +243,36 @@ class Worker(Unit):
 				if self.move(locs[lNum], dir) != bc.MapLocation(bc.Planet.Earth, -1, -1):
 					locs.append(testLoc)
 				else:
-					return False
-	
-	
+					test2 = bc.MapLocation(bc.Planet.Earth, locs[lNum].x + dir[0], locs[lNum].y)
+					test3 = bc.MapLocation(bc.Planet.Earth, locs[lNum].x, locs[lNum].y + dir[1])
+						
+					if EarthMap.is_passable_terrain_at(test2) and EarthMap.is_passable_terrain_at(testLoc) and not gc.has_unit_at_location(test2) and not gc.has_unit_at_location(testLoc):
+						locs.append(test2)
+						locs.append(testLoc)
+					elif EarthMap.is_passable_terrain_at(test3) and EarthMap.is_passable_terrain_at(testLoc) and not gc.has_unit_at_location(test3) and not gc.has_unit_at_location(testLoc):
+						locs.append(test3)
+						locs.append(testLoc)
+					else:
+						if locs[lNum] == pLoc:
+							return [locs, False, branch.extend(branchDirection)]
+						else:
+							newBranches = []
+							walls = self.checkWalls(locs[lNum])
+							if len(walls) == 0:
+								print("No walls. How")
+							elif len(walls) == 1:
+								b = Branch(walls[0], locs[lNum])
+								newBranches = newBranches + b.extend()
+							elif len(walls) == 2:
+								print("Welp")
+								#That should be the corner piece between the two walls
+								wall = int((walls[0] + walls[1])/(2))
+								b = Branch(wall, locs[lNum])
+								newBranches = newBranches + b.extend()
+							else:
+								print("I dunno")
+							return [locs, False, newBranches]
+							
 	def move(self, loc, dir):
 		test1 = bc.MapLocation(bc.Planet.Earth, loc.x + dir[0], loc.y + dir[1])
 		test2 = bc.MapLocation(bc.Planet.Earth, loc.x + dir[0], loc.y)
@@ -332,8 +390,15 @@ class Branch():
 		self.startingLoc = startingLoc
 		self.direction = self.tDirection(wallDirection)
 		self.nodes = []
+		self.branches = []
+		
+		if self.startingLoc != bc.MapLocation(bc.Planet.Earth, -1, -1):
+			self.pBranch = Branch(-1, bc.MapLocation(bc.Planet.Earth, -1, -1))
 	
 	def tDirection(self, dir):
+		
+		if self.startingLoc == bc.MapLocation(bc.Planet.Earth, -1, -1):
+			return None
 		
 		directions = []
 		if self.wallDirection % 2 == 0:
@@ -355,7 +420,7 @@ class Branch():
 			
 			#Passible terrain at this spot means it's only a corner piece
 			if EarthMap.is_passable_terrain_at(testLocation) and not gc.has_unit_at_location(testLocation):
-				dir = dir - 1
+				dir = self.wallDirection - 1
 				if dir < 0:
 					dir = dir + 8
 				directions.append(dir)
@@ -366,7 +431,7 @@ class Branch():
 				directions.append(dir)
 			else:
 				#This means it must be in a corner with two walls to it
-				dir = dir - 3
+				dir = self.wallDirection - 3
 				if dir < 0:
 					dir = dir + 8
 				directions.append(dir)
@@ -385,7 +450,7 @@ class Branch():
 		global gc
 		global EarthMap
 		
-		if len(extendDirection) != 0:
+		if len(extendDirection) != 0 and extendDirection[0] != -1:
 			self.direction = extendDirection
 		
 		hitWall1 = False
@@ -453,25 +518,42 @@ class Branch():
 				if dir < 0:
 					dir = dir + 8
 				b = Branch(dir, loc1)
-				b.extend(self.wallDirection)
+				b.setPreviousBranch(self)
+				self.branches.append(b)
+				self.branches.append(self.wallDirection)
+				#b.extend(self.wallDirection)
 			else:
 				#The wall direction is the direction unit was trying to go because it hit a wall
 				b = Branch(self.direction[0], loc1)
-				b.extend()
-			if hitWall1 == False:
+				b.setPreviousBranch(self)
+				self.branches.append(b)
+				self.branches.append(-1)
+				#b.extend()
+			if hitWall2 == False:
 				#The wall direction is now the opposite of the direction it was going because it rounded the corner
 				dir = self.direction[1] - 4
 				if dir < 0:
 					dir = dir + 8
 				b = Branch(dir, loc2)
-				b.extend(self.wallDirection)
+				b.setPreviousBranch(self)
+				self.branches.append(b)
+				self.branches.append(self.wallDirection)
+				#b.extend(self.wallDirection)
 			else:
 				#The wall direction is the direction unit was trying to go because it hit a wall
 				b = Branch(self.direction[1], loc2)
-				b.extend()
+				b.setPreviousBranch(self)
+				self.branches.append(b)
+				self.branches.append(-1)
+				#b.extend()
+			
+			print("Branches: " + str(len(self.branches)))			
+			return self.branches
 			
 		else:
 			print("Node: " + str(self.nodes[0]))
+			
+			branches = []
 			
 			#The function is recurrent and will continue to extend branches
 			if hitWall1 == False:
@@ -480,12 +562,47 @@ class Branch():
 				if dir < 0:
 					dir = dir + 8
 				b = Branch(dir, loc1)
-				b.extend(self.wallDirection)
+				b.setPreviousBranch(self)
+				self.branches.append(b)
+				self.branches.append(self.wallDirection)
+				#b.extend(self.wallDirection)
 			else:
 				#The wall direction is the direction unit was trying to go because it hit a wall
 				b = Branch(self.direction[0], loc1)
-				b.extend()
-			
+				b.setPreviousBranch(self)
+				self.branches.append(b)
+				self.branches.append(-1)
+				#b.extend()
+				
+			return self.branches
+	
+	def getNode(self, x):
+		if x >= 1:
+			if len(nodes) > 1:
+				return nodes[x]
+			else:
+				print("Only one node")
+		else:
+			return nodes[x]
+	
+	def getNodeCount(self):
+		return len(nodes)
+	
+	def getStartingLocation(self):
+		return self.startingLoc
+		
+	def addNode(nodeLocation):
+		nodes.append(nodeLocation)
+		
+	def setPreviousBranch(self, b):
+		self.pBranch = b
+	
+	def getPath(self, locations):
+		if self.pBranch.getStartingLocation() !=  bc.MapLocation(bc.Planet.Earth, -1, -1):
+			return self.pBranch.getPath(locations) + [self.getStartingLocation()] + locations
+		else:
+			return [self.getStartingLocation()] + locations
+	
 	def convertDirection(self, dir):
 		if dir == bc.Direction.North:
 			return [0,1]
