@@ -125,6 +125,8 @@ class Worker(Unit):
 					else:
 						print("CM: " + str(unit.id) + " Direction: " + str(path))
 						print("Dest: " + str(dest) + " Loc: " + str(unit.location.map_location()))
+						if gc.has_unit_at_location(dest):
+							return [[], dest]
 						#return [self.navigateToPoint(unit, dest), dest]
 						return [path, dest]
 						
@@ -134,7 +136,7 @@ class Worker(Unit):
 						#print("Harvesting..." + str(unit.id))
 						return [path, dest]
 					else:
-						print("Can't harvest more..." + str(unit.id) + " | " + str(len(karnoniteLocations)))
+						#print("Can't harvest more..." + str(unit.id) + " | " + str(len(karnoniteLocations)))
 						return [[], dest]
 			elif len(karnoniteLocations) != 0:
 				pLoc = unit.location.map_location()
@@ -165,7 +167,7 @@ class Worker(Unit):
 			locs.append(pLoc)
 			while True:
 				lNum = len(locs)-1
-				if self.atLocation(locs[lNum],dLoc):
+				if self.atLocation(locs[lNum],dLoc) or gc.has_unit_at_location(dLoc):
 					return self.convertLocs(locs)
 				
 				dir = self.convertDirection(locs[lNum].direction_to(dLoc))
@@ -241,12 +243,12 @@ class Worker(Unit):
 				locs.append(pLoc)
 			while True:
 				lNum = len(locs)-1
-				
-				#This is a temporary measure if something is on the destination 
-				if self.atLocation(locs[lNum],dLoc) and gc.has_unit_at_location(dLoc):
+				if self.atLocation(locs[lNum],dLoc):
 					return [locs, True]
 				
 				dir = self.convertDirection(locs[lNum].direction_to(dLoc))
+				if dir == 8:
+					print("Center")
 				
 				testLoc = bc.MapLocation(bc.Planet.Earth, locs[lNum].x + dir[0], locs[lNum].y + dir[1])
 				
