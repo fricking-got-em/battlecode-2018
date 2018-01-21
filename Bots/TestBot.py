@@ -123,8 +123,12 @@ class Worker(Unit):
 						del path[0]
 						return [path, dest]
 					else:
-						print("CM: " + str(unit.id) + " Direction: " + str(path))
-						print("Dest: " + str(dest) + " Loc: " + str(unit.location.map_location()))
+						if self.move(unit.location.map_location(), self.convertDirection(path[0])) == bc.MapLocation(bc.Planet.Earth, -1, -1):
+							print("CM: " + str(unit.id) + " Direction: " + str(path))
+							print("Dest: " + str(dest) + " Loc: " + str(unit.location.map_location()))
+							return [[], dest]
+						else:
+							print("Can't move for some other reason")
 						if gc.has_unit_at_location(dest):
 							return [[], dest]
 						#return [self.navigateToPoint(unit, dest), dest]
@@ -136,7 +140,7 @@ class Worker(Unit):
 						#print("Harvesting..." + str(unit.id))
 						return [path, dest]
 					else:
-						#print("Can't harvest more..." + str(unit.id) + " | " + str(len(karnoniteLocations)))
+						print("Can't harvest more..." + str(unit.id) + " | " + str(len(karnoniteLocations)))
 						return [[], dest]
 			elif len(karnoniteLocations) != 0:
 				pLoc = unit.location.map_location()
@@ -148,8 +152,10 @@ class Worker(Unit):
 						closestDist = dist
 						closestLoc = i
 				#print("NL:" + str(closestLoc) + " " + str(karnoniteLocations[closestLoc]) + " : " + str(unit.id))
-				loc = karnoniteLocations[closestLoc]
-				karnoniteLocations = np.delete(karnoniteLocations, [closestLoc])
+				#loc = karnoniteLocations[closestLoc]
+				r = random.randint(0, len(karnoniteLocations) - 1)
+				loc = karnoniteLocations[r]
+				karnoniteLocations = np.delete(karnoniteLocations, [r])
 				
 				return [self.navigateToPoint(unit, loc), loc]
 			else:
@@ -183,8 +189,10 @@ class Worker(Unit):
 						return []
 					allLocations = [[unit.location.map_location()]]
 					for points in kP:
-						allLocations = self.canMoveToDestination(allLocations[0], None, points, unit, None, None)
+						print("Location1: " + str(points))
+						allLocations = self.canMoveToDestination(allLocations[0], None, points, unit, None, None, True)
 					#The 1st part of the array are the locations
+					print("Orgin: " + str(allLocations[0]))
 					return self.convertLocs(allLocations[0])
 	
 	def convertLocs(self, locs):
@@ -209,19 +217,40 @@ class Worker(Unit):
 			wall = int((walls[0] + walls[1])/(2))
 			b = Branch(wall, loc)
 			nBranches = nBranches + b.extend()
-		else:
+		elif len(walls) == 3:
+			bWalls = [0, 2, 4, 6]
+			for w in walls:
+				if w == 0:
+					del bWalls[0]
+				elif w == 2:
+					del bWalls[1]
+				elif w == 4:
+					del bWalls[2]
+				else:
+					del bWalls[3]
+			
+			wallDir = bWalls[0] - 2
+			if wallDir < 0:
+				wallDir = wallDir + 8
+			b = Branch(wallDir, loc)
+			nBranches = nBranches + b.extend()
 			print("I dunno")
 		
 		while True:
+			print("BLEH")
 			temp = []
 			#If a unit has moved to the destination location exit
 			if gc.has_unit_at_location(dLoc):
+				print("Um")
 				return [bc.MapLocation(bc.Planet.Earth, -1, -1)]
 			for i in range(0, len(nBranches), 2):
 				#Every other value is the direction in which to extend the branch
 				dest = self.canMoveToDestination([], nBranches[i].getStartingLocation(), dLoc, unit, nBranches[i], nBranches[i + 1])
-				#print("Destination: " + str(dLoc))
+				print("Destination: " + str(dLoc) + " | " + str(i))
+				if i > 400:
+					return [bc.MapLocation(bc.Planet.Earth, -1, -1)]
 				if dest[1] == False:
+					print("RIP")
 					temp = temp + dest[2]
 				else:
 					keyLocations = nBranches[i].getPath([]) + [dLoc]
@@ -231,17 +260,20 @@ class Worker(Unit):
 			nBranches = temp
 			branches.append(temp)
 				
-	def canMoveToDestination(self, tLocs, sLoc, dLoc, unit, branch, branchDirection):
+	def canMoveToDestination(self, tLocs, sLoc, dLoc, unit, branch, branchDirection, *extra):
 		global EarthMap
 		locs = list(tLocs)
 		if unit.location.is_on_map():
 			if len(locs) == 0:
 				pLoc = sLoc
 				locs.append(sLoc)
-			else:
+			elif len(extra) == 0:
 				pLoc = unit.location.map_location()
 				locs.append(pLoc)
+			else:
+				pLoc = unit.location.map_location()
 			while True:
+				print("ffvghjlhj")
 				lNum = len(locs)-1
 				if self.atLocation(locs[lNum],dLoc):
 					return [locs, True]
@@ -279,6 +311,9 @@ class Worker(Unit):
 								print("Welp: " + str(walls) + " | " + str(unit.id))
 								print("Location: " + str(locs[lNum]))
 								#That should be the corner piece between the two walls
+								if walls[0] == 0 and walls[1] == 6:
+									walls[0] = 8
+
 								wall = int((walls[0] + walls[1])/(2))
 								b = Branch(wall, locs[lNum])
 								newBranches = newBranches + b.extend()
@@ -335,8 +370,18 @@ class Worker(Unit):
 					print("Ran into self")
 				else:
 					walls.append(directions[i])
-					
-		return walls
+		
+		if len(walls) == 0:
+			for i in range(0, len(directions)-1):
+				direction = self.convertDirection(directions[i])
+				loc = bc.MapLocation(bc.Planet.Earth, pLoc.x + direction[0], pLoc.y + direction[1])
+				if gc.has_unit_at_location(loc) or not EarthMap.is_passable_terrain_at(loc):
+					if gc.has_unit_at_location(loc) and gc.sense_unit_at_location(loc).id == unit[0].id:
+						print("Ran into self")
+					else:
+						return directions[i]
+		else:
+			return walls
 		
 		
 	def convertDirection(self, dir):
@@ -453,11 +498,12 @@ class Branch():
 					dir = dir + 8
 				directions.append(dir)
 				
-				dir = directions[0] + 3
+				dir = self.wallDirection + 3
 				if dir > 7:
 					dir = dir - 8
 				directions.append(dir)
 			
+			print("AHHHH: " + str(directions))
 			return directions
 
 	#Will later need to make this function try to reach the destination after every node is found
@@ -526,7 +572,7 @@ class Branch():
 				else:
 					loc2 = newPlayerLocation
 				
-			#print("Nodes: " + str(self.nodes[0]) + " | " + str(self.nodes[1]))
+			print("Nodes: " + str(self.nodes[0]) + " | " + str(self.nodes[1]))
 			
 			#The function is recurrent and will continue to extend branches
 			if hitWall1 == False:
@@ -568,7 +614,7 @@ class Branch():
 			return self.branches
 			
 		else:
-			#print("Node: " + str(self.nodes[0]))
+			print("Node: " + str(self.nodes[0]))
 			
 			branches = []
 			
@@ -792,7 +838,7 @@ def refreshUnits():
 
 while True:
 	round = gc.round()
-	#print("Round: " + str(round))
+	print("Round: " + str(round))
 
 	try:
 		totalUnits = len(gc.my_units())
