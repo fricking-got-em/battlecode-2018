@@ -831,7 +831,7 @@ def refreshUnits():
 				f.buildUnit(unit, bc.UnitType.Knight)
 				f.unloadUnit(unit)
 			else:
-				factories[unit.id] = {}
+				factories[unit.id] = {"Unit": unit}
 		elif type == bc.UnitType.Rocket:
 			if unit.id in rockets:
 				#Do some logic
