@@ -49,7 +49,7 @@ for x in range(EarthMap.width - 1):
 
 totalUnits = 0
 previousUnits = 0
-maxFactory = 0
+maxFactory = 5
 
 class Unit:
 	
@@ -825,7 +825,8 @@ def refreshUnits():
 		elif type == bc.UnitType.Factory:
 			if unit.id in factories:
 				#Do some logic
-				factories[1] = 4
+				f.buildRobot(unit.id, UnitType.Knight)
+				f.unloadUnit(unit.id)
 			else:
 				factories[unit.id] = {}
 		elif type == bc.UnitType.Rocket:
