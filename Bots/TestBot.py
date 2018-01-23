@@ -1,5 +1,5 @@
 #First bot testing MINE
-#NEWWWW
+#NEW
 import battlecode as bc
 import random
 import sys
@@ -45,57 +45,57 @@ for x in range(EarthMap.width - 1):
 	for y in range(EarthMap.height - 1):
 		if EarthMap.initial_karbonite_at(bc.MapLocation(bc.Planet.Earth, x, y)) > 0:
 			karnoniteLocations = np.append(karnoniteLocations, bc.MapLocation(bc.Planet.Earth, x, y))
-			
+
 
 totalUnits = 0
 previousUnits = 0
 maxFactory = 2
 
 class Unit:
-	
+
 	uCount = 0
-	
+
 	def __init__(self):
 		self.hi = 0
 		#uCount = uCount + 1
-		
+
 	def actionType(self, type):
 		self.type = type
-	
+
 class Worker(Unit):
 
 	count = 0
-	
+
 	def __init__(self):
 		super().__init__()
 		#count = count + 1
-		
+
 	def actionType(self, type):
 		super().actionType(type)
-	
+
 	#Builds a factory in the specified direction, if not build in any direction
 	def blueprintFactory(self, unit, *direction):
 		global factories
-		
+
 		if unit.location.is_on_map():
 			if direction != ():
 				directions = direction
 			else:
 				directions = list(bc.Direction)
-			
+
 			for d in directions:
 				if gc.can_blueprint(unit.id, bc.UnitType.Factory, d):
 					gc.blueprint(unit.id, bc.UnitType.Factory, d)
 					#print("Blueprinted")
 					return True
 					break
-			
+
 			#print("Failed to blueprint")
 			return False
 		else:
 			return False
-	
-	#Builds whatever factory is nearby	
+
+	#Builds whatever factory is nearby
 	def buildFactory(self, unit):
 		if unit.location.is_on_map():
 			near = gc.sense_nearby_units(unit.location.map_location(), 1)
@@ -104,11 +104,11 @@ class Worker(Unit):
 					gc.build(unit.id, i.id)
 					print("Building")
 					return True
-			
+
 			return False
 		else:
 			return False
-			
+
 	def mineKarbonite(self, unit, path, dest):
 		global EarthMap
 		global karnoniteLocations
@@ -117,7 +117,7 @@ class Worker(Unit):
 		if unit.location.is_on_map():
 			if len(path) != 0:
 				if len(path) != 1:
-					if gc.can_move(unit.id, path[0]) and gc.is_move_ready(unit.id):	
+					if gc.can_move(unit.id, path[0]) and gc.is_move_ready(unit.id):
 						gc.move_robot(unit.id, path[0])
 						del path[0]
 						#print("Deleted: " + str(len(path)) + " : " + str(unit.id))
@@ -129,12 +129,13 @@ class Worker(Unit):
 						if self.move(unit.location.map_location(), self.convertDirection(path[0])) == bc.MapLocation(bc.Planet.Earth, -1, -1):
 							#print("CM: " + str(unit.id) + " Direction: " + str(path))
 							#print("Dest: " + str(dest) + " Loc: " + str(unit.location.map_location()))
-							return [[], dest]
+							#return [[], dest]
+							return [self.navigateToPoint(unit, dest), dest]
 						if gc.has_unit_at_location(dest):
 							return [[], dest]
 						#return [self.navigateToPoint(unit, dest), dest]
 						return [path, dest]
-						
+
 				else:
 					if gc.can_harvest(unit.id, path[0]):
 						gc.harvest(unit.id, path[0])
@@ -157,14 +158,14 @@ class Worker(Unit):
 				r = random.randint(0, len(karnoniteLocations) - 1)
 				loc = karnoniteLocations[r]
 				karnoniteLocations = np.delete(karnoniteLocations, [r])
-				
+
 				return [self.navigateToPoint(unit, loc), loc]
 			else:
 				return [[], dest]
 		else:
 			print("Unit not on map")
 			return [[], dest]
-	
+
 	def navigateToPoint(self, unit, dLoc):
 		global EarthMap
 		branches = []
@@ -176,10 +177,10 @@ class Worker(Unit):
 				lNum = len(locs)-1
 				if self.atLocation(locs[lNum],dLoc) or gc.has_unit_at_location(dLoc):
 					return self.convertLocs(locs)
-				
+
 				dir = self.convertDirection(locs[lNum].direction_to(dLoc))
 				testLoc = bc.MapLocation(bc.Planet.Earth, locs[lNum].x + dir[0], locs[lNum].y + dir[1])
-				
+
 				if self.move(locs[lNum], dir) != bc.MapLocation(bc.Planet.Earth, -1, -1):
 					locs.append(testLoc)
 					#print(testLoc)
@@ -195,13 +196,13 @@ class Worker(Unit):
 					#The 1st part of the array are the locations
 					#print("Orgin: " + str(allLocations[0]))
 					return self.convertLocs(allLocations[0])
-	
+
 	def convertLocs(self, locs):
 		path = []
 		for i in range(len(locs)-1):
 			path.append(locs[i].direction_to(locs[i+1]))
 		return path
-			
+
 	def followWall(self, loc, dLoc, unit):
 		branches = []
 		nBranches = []
@@ -229,14 +230,14 @@ class Worker(Unit):
 					del bWalls[2]
 				else:
 					del bWalls[3]
-			
+
 			wallDir = bWalls[0] - 2
 			if wallDir < 0:
 				wallDir = wallDir + 8
 			b = Branch(wallDir, loc)
 			nBranches = nBranches + b.extend()
 			#print("I dunno")
-		
+
 		while True:
 			#print("BLEH")
 			temp = []
@@ -257,10 +258,10 @@ class Worker(Unit):
 					keyLocations = nBranches[i].getPath([]) + [dLoc]
 					#print("KeyLocations: " + str(keyLocations) + " | " + str(unit.id))
 					return keyLocations
-					
+
 			nBranches = temp
 			branches.append(temp)
-				
+
 	def canMoveToDestination(self, tLocs, sLoc, dLoc, unit, branch, branchDirection, *extra):
 		global EarthMap
 		locs = list(tLocs)
@@ -278,17 +279,17 @@ class Worker(Unit):
 				lNum = len(locs)-1
 				if self.atLocation(locs[lNum],dLoc):
 					return [locs, True]
-				
+
 				dir = self.convertDirection(locs[lNum].direction_to(dLoc))
-				
+
 				testLoc = bc.MapLocation(bc.Planet.Earth, locs[lNum].x + dir[0], locs[lNum].y + dir[1])
-				
+
 				if self.move(locs[lNum], dir) != bc.MapLocation(bc.Planet.Earth, -1, -1):
 					locs.append(testLoc)
 				else:
 					test2 = bc.MapLocation(bc.Planet.Earth, locs[lNum].x + dir[0], locs[lNum].y)
 					test3 = bc.MapLocation(bc.Planet.Earth, locs[lNum].x, locs[lNum].y + dir[1])
-						
+
 					if EarthMap.is_passable_terrain_at(test2) and EarthMap.is_passable_terrain_at(testLoc) and not gc.has_unit_at_location(test2) and not gc.has_unit_at_location(testLoc):
 						locs.append(test2)
 						locs.append(testLoc)
@@ -296,7 +297,7 @@ class Worker(Unit):
 						locs.append(test3)
 						locs.append(testLoc)
 					else:
-						if locs[lNum] == pLoc:
+						if locs[lNum] == pLoc and len(extra) == 0:
 							return [locs, False, branch.extend(branchDirection)]
 						else:
 							newBranches = []
@@ -316,25 +317,25 @@ class Worker(Unit):
 								wall = int((walls[0] + walls[1])/(2))
 								b = Branch(wall, locs[lNum])
 								newBranches = newBranches + b.extend()
-							
+
 							return [locs, False, newBranches]
-							
+
 	def move(self, loc, dir):
 		test1 = bc.MapLocation(bc.Planet.Earth, loc.x + dir[0], loc.y + dir[1])
 		test2 = bc.MapLocation(bc.Planet.Earth, loc.x + dir[0], loc.y)
 		test3 = bc.MapLocation(bc.Planet.Earth, loc.x, loc.y + dir[1])
-		
+
 		if EarthMap.is_passable_terrain_at(test1) and EarthMap.is_passable_terrain_at(test2) and EarthMap.is_passable_terrain_at(test3) and not self.checkUnit(dir, loc):
 			return test1
 		else:
 			return bc.MapLocation(bc.Planet.Earth, -1, -1)
-	
+
 	def atLocation(self, pLoc, dLoc):
 		if pLoc.distance_squared_to(dLoc) == 0:
 			return True
 		else:
 			return False
-	
+
 	def checkUnit(self, dir, pLoc):
 		if dir[0] != 0:
 			loc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y)
@@ -343,21 +344,21 @@ class Worker(Unit):
 		if dir[1] != 0:
 			loc = bc.MapLocation(bc.Planet.Earth, pLoc.x, pLoc.y + dir[1])
 			if gc.has_unit_at_location(loc):
-				return True	
+				return True
 		if dir[0] != 0 and dir[1] != 0:
 			loc = bc.MapLocation(bc.Planet.Earth, pLoc.x + dir[0], pLoc.y + dir[1])
 			if gc.has_unit_at_location(loc):
-				return True	
+				return True
 		return False
-		
+
 	def checkWalls(self, pLoc, *unit):
 		global EarthMap
 		global gc
-		
+
 		walls = []
-		
+
 		directions = list(bc.Direction)
-		
+
 		#Then check the diagonal directions
 		for i in range(0, len(directions)-1, 2):
 			direction = self.convertDirection(directions[i])
@@ -367,7 +368,7 @@ class Worker(Unit):
 					print("Ran into self")
 				else:
 					walls.append(directions[i])
-		
+
 		if len(walls) == 0:
 			for i in range(0, len(directions)-1):
 				direction = self.convertDirection(directions[i])
@@ -379,8 +380,8 @@ class Worker(Unit):
 						return [directions[i]]
 		else:
 			return walls
-		
-		
+
+
 	def convertDirection(self, dir):
 		if dir == bc.Direction.North:
 			return [0,1]
@@ -400,7 +401,7 @@ class Worker(Unit):
 			return [-1,1]
 		else:
 			return [0,0]
-			
+
 	def convertToDirection(self, n):
 		if n == 0:
 			return bc.Direction.North
@@ -420,7 +421,7 @@ class Worker(Unit):
 			return bc.Direction.Northwest
 		elif n == 8:
 			return bc.Direction.Center
-	
+
 	def cToD(self, dir):
 		if dir == [0,1]:
 			return bc.Direction.North
@@ -440,7 +441,6 @@ class Worker(Unit):
 			return bc.Direction.Northwest
 		else:
 			return [0,0]
-			
 
 class Branch():
 
@@ -450,40 +450,40 @@ class Branch():
 		self.direction = self.tDirection(wallDirection)
 		self.nodes = []
 		self.branches = []
-		
+
 		if self.startingLoc != bc.MapLocation(bc.Planet.Earth, -1, -1):
 			self.pBranch = Branch(-1, bc.MapLocation(bc.Planet.Earth, -1, -1))
-	
+
 	def tDirection(self, dir):
-		
+
 		if self.startingLoc == bc.MapLocation(bc.Planet.Earth, -1, -1):
 			return None
-		
+
 		directions = []
 		if self.wallDirection % 2 == 0:
 			dir = dir - 2
 			if dir < 0:
 				dir = dir + 8
 			directions.append(dir)
-			
+
 			dir = directions[0] - 4
 			if dir < 0:
 				dir = dir + 8
 			directions.append(dir)
-			
+
 			return directions
 		else:
 			#This means it's a corner piece. Only give when colliding with two walls or just a corner wall
 			dir = self.convertDirection(self.wallDirection - 1)
 			testLocation = bc.MapLocation(bc.Planet.Earth, self.startingLoc.x + dir[0], self.startingLoc.y + dir[1])
-			
+
 			#Passible terrain at this spot means it's only a corner piece
 			if EarthMap.is_passable_terrain_at(testLocation) and not gc.has_unit_at_location(testLocation):
 				dir = self.wallDirection - 1
 				if dir < 0:
 					dir = dir + 8
 				directions.append(dir)
-				
+
 				dir = directions[0] + 1
 				if dir > 7:
 					dir = dir - 8
@@ -494,41 +494,41 @@ class Branch():
 				if dir < 0:
 					dir = dir + 8
 				directions.append(dir)
-				
+
 				dir = self.wallDirection + 3
 				if dir > 7:
 					dir = dir - 8
 				directions.append(dir)
-			
+
 			#print("AHHHH: " + str(directions))
 			return directions
 
 	#Will later need to make this function try to reach the destination after every node is found
 	def extend(self, *extendDirection):
-		
+
 		#print("Extending...")
 		global gc
 		global EarthMap
-		
+
 		if len(extendDirection) != 0 and extendDirection[0] != -1:
 			self.direction = extendDirection
-		
+
 		hitWall1 = False
 		hitWall2 = False
-		
+
 		#Can always ignore the first wall location
 		first = True
-		
+
 		loc1 = self.startingLoc
 		while True:
 
 			dir = self.convertDirection(self.direction[0])
 			#print("First: " + str(loc1) + " | " + str(self.wallDirection))
 			wallDir = self.convertDirection(self.wallDirection)
-			
+
 			wallLocation = bc.MapLocation(bc.Planet.Earth, loc1.x + wallDir[0], loc1.y + wallDir[1])
 			newPlayerLocation = bc.MapLocation(bc.Planet.Earth, loc1.x + dir[0], loc1.y + dir[1])
-			
+
 			#Checks if the wall is no longer there or if the player has run into a wall
 			if EarthMap.is_passable_terrain_at(wallLocation) and not gc.has_unit_at_location(wallLocation) and first == False:
 				self.nodes.append(loc1)
@@ -539,13 +539,13 @@ class Branch():
 				break
 			else:
 				loc1 = newPlayerLocation
-			
+
 			if first == True:
 				first = False
-		
+
 		#Can always ignore the first wall location
 		first = True
-		
+
 		#This loop goes in the opposite direction
 		loc2 = self.startingLoc
 		if len(self.direction) >= 2:
@@ -554,10 +554,10 @@ class Branch():
 				dir = self.convertDirection(self.direction[1])
 				#print("Second: " + str(loc2))
 				wallDir = self.convertDirection(self.wallDirection)
-				
+
 				wallLocation = bc.MapLocation(bc.Planet.Earth, loc2.x + wallDir[0], loc2.y + wallDir[1])
 				newPlayerLocation = bc.MapLocation(bc.Planet.Earth, loc2.x + dir[0], loc2.y + dir[1])
-				
+
 				#Checks if the wall is no longer there or if the player has run into a wall
 				if EarthMap.is_passable_terrain_at(wallLocation) and not gc.has_unit_at_location(wallLocation):
 					self.nodes.append(loc2)
@@ -568,9 +568,9 @@ class Branch():
 					break
 				else:
 					loc2 = newPlayerLocation
-				
+
 			#print("Nodes: " + str(self.nodes[0]) + " | " + str(self.nodes[1]))
-			
+
 			#The function is recurrent and will continue to extend branches
 			if hitWall1 == False:
 				#The wall direction is now the opposite of the direction it was going because it rounded the corner
@@ -606,15 +606,15 @@ class Branch():
 				self.branches.append(b)
 				self.branches.append(-1)
 				#b.extend()
-			
-			#print("Branches: " + str(len(self.branches)))			
+
+			#print("Branches: " + str(len(self.branches)))
 			return self.branches
-			
+
 		else:
 			#print("Node: " + str(self.nodes[0]))
-			
+
 			branches = []
-			
+
 			#The function is recurrent and will continue to extend branches
 			if hitWall1 == False:
 				#The wall direction is now the opposite of the direction it was going because it rounded the corner
@@ -633,9 +633,9 @@ class Branch():
 				self.branches.append(b)
 				self.branches.append(-1)
 				#b.extend()
-				
+
 			return self.branches
-	
+
 	def getNode(self, x):
 		if x >= 1:
 			if len(nodes) > 1:
@@ -644,25 +644,25 @@ class Branch():
 				print("Only one node")
 		else:
 			return nodes[x]
-	
+
 	def getNodeCount(self):
 		return len(nodes)
-	
+
 	def getStartingLocation(self):
 		return self.startingLoc
-		
+
 	def addNode(nodeLocation):
 		nodes.append(nodeLocation)
-		
+
 	def setPreviousBranch(self, b):
 		self.pBranch = b
-	
+
 	def getPath(self, locations):
 		if self.pBranch.getStartingLocation() !=  bc.MapLocation(bc.Planet.Earth, -1, -1):
 			return self.pBranch.getPath(locations) + [self.getStartingLocation()] + locations
 		else:
 			return [self.getStartingLocation()] + locations
-	
+
 	def convertDirection(self, dir):
 		if dir == bc.Direction.North:
 			return [0,1]
@@ -682,72 +682,72 @@ class Branch():
 			return [-1,1]
 		else:
 			return [0,0]
-		
+
 class Knight(Unit):
 
 	count = 0
-	
+
 	def __init__(self):
 		super().__init__()
 		#count = count + 1
-		
+
 	def actionType(self, type):
 		super().actionType(type)
-		
+
 class Ranger(Unit):
 
 	count = 0
-	
+
 	def __init__(self):
 		super().__init__()
 		#count = count + 1
-		
+
 	def actionType(self, type):
 		super().actionType(type)
 
 class Mage(Unit):
-	
+
 	count = 0
-	
+
 	def __init__(self):
 		super().__init__()
 		#count = count + 1
-		
+
 	def actionType(self, type):
 		super().actionType(type)
-		
+
 class Healer(Unit):
-	
+
 	count = 0
-	
+
 	def __init__(self):
 		super().__init__()
 		#count = count + 1
-		
+
 	def actionType(self, type):
 		super().actionType(type)
-		
+
 class Factory(Unit):
-	
+
 	count = 0
-	
+
 	def __init__(self):
 		super().__init__()
 		#count = count + 1
-		
+
 	def actionType(self, type):
 		super().actionType(type)
-		
+
 	def unloadUnit(self, unit, *direction):
 		if direction != ():
 			directions = direction
 		else:
 			directions = list(bc.Direction)
-		
+
 		for d in directions:
 			if gc.can_unload(unit.id, d):
 				gc.unload(unit.id, d)
-	
+
 	def buildUnit(self, unit, type):
 		global gc
 		if gc.can_produce_robot(unit.id, type):
@@ -755,16 +755,16 @@ class Factory(Unit):
 			print("Unit Produced")
 		else:
 			print("Failed to produce")
-			
-	
+
+
 class Rocket(Unit):
-	
+
 	count = 0
-	
+
 	def __init__(self):
 		super().__init__()
 		#count = count + 1
-		
+
 	def actionType(self, type):
 		super().actionType(type)
 
@@ -778,10 +778,10 @@ def refreshUnits():
 	global factories
 	global rockets
 	global gc
-	
+
 	w = Worker()
 	f = Factory()
-	
+
 	for unit in gc.my_units():
 		type = unit.unit_type
 		#print(str(unit.id) + " | " + str(type))
@@ -789,7 +789,7 @@ def refreshUnits():
 		if type == bc.UnitType.Worker:
 			if unit.id in workers:
 				#Do some logic
-				
+
 				if len(factories) < maxFactory:
 					print("Not enough factories")
 					w.blueprintFactory(unit)
@@ -838,7 +838,7 @@ def refreshUnits():
 				rockets[1] = 4
 			else:
 				rockets[unit.id] = {}
-	
+
 
 while True:
 	round = gc.round()
@@ -846,22 +846,22 @@ while True:
 
 	try:
 		totalUnits = len(gc.my_units())
-		
+
 		if round == 1:
 			refreshUnits()
 			totalUnits = len(gc.my_units())
 		elif gc.planet() == bc.Planet.Earth:
 			refreshUnits()
-		
+
 	except Exception as e:
 		if error == False:
 			print("Error:",e)
-	
+
 			#This shows where the error was
 			traceback.print_exc()
 			error = True
-		
+
 	gc.next_turn()
-	
+
 	sys.stdout.flush()
 	sys.stderr.flush()
